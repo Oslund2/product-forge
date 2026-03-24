@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Forge AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    textarea::-webkit-scrollbar, .markdown-body::-webkit-scrollbar { width: 8px; }
+    textarea::-webkit-scrollbar-track, .markdown-body::-webkit-scrollbar-track { background: #f1f5f9; }
+    textarea::-webkit-scrollbar-thumb, .markdown-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    textarea::-webkit-scrollbar-thumb:hover, .markdown-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #1e293b; }
+    .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
+    .markdown-body h3 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.25rem; color: #475569; }
+    .markdown-body p { margin: 0.5rem 0; line-height: 1.6; }
+    .markdown-body ul, .markdown-body ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+    .markdown-body li { margin: 0.25rem 0; line-height: 1.5; }
+    .markdown-body strong { color: #1e293b; }
+    .markdown-body blockquote { border-left: 3px solid #6366f1; padding: 0.5rem 1rem; margin: 0.5rem 0; background: #eef2ff; border-radius: 0 0.5rem 0.5rem 0; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
+    .markdown-body th { background: #f1f5f9; padding: 0.5rem; text-align: left; font-weight: 600; border: 1px solid #e2e8f0; }
+    .markdown-body td { padding: 0.5rem; border: 1px solid #e2e8f0; }
+    .markdown-body code { background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; }
+    .markdown-body pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
+    .markdown-body pre code { background: none; padding: 0; color: inherit; }
+    .markdown-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    /* ── Icon Components ─────────────────────────────── */
+    const Icon = ({ children, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        strokeLinejoin="round" className={className}>
+        {children}
+      </svg>
+    );
+
+    const Brain = (p) => <Icon {...p}><path d="M12 2a7 7 0 0 0-7 7c0 3 2 5.5 4 7l3 3.5L15 16c2-1.5 4-4 4-7a7 7 0 0 0-7-7z"/><path d="M12 2v4"/><path d="M8 6h8"/></Icon>;
+    const FileText = (p) => <Icon {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></Icon>;
+    const Cpu = (p) => <Icon {...p}><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></Icon>;
+    const Calculator = (p) => <Icon {...p}><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="11" x2="8" y2="11.01"/><line x1="12" y1="11" x2="12" y2="11.01"/><line x1="16" y1="11" x2="16" y2="11.01"/><line x1="8" y1="15" x2="8" y2="15.01"/><line x1="12" y1="15" x2="12" y2="15.01"/><line x1="8" y1="19" x2="8" y2="19.01"/><line x1="12" y1="19" x2="12" y2="19.01"/></Icon>;
+    const Sparkles = (p) => <Icon {...p}><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/></Icon>;
+    const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
+    const ArrowRight = (p) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></Icon>;
+    const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
+    const RotateCcw = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></Icon>;
+    const Save = (p) => <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
+    const FolderOpen = (p) => <Icon {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></Icon>;
+
+    /* ── Markdown Renderer ───────────────────────────── */
+    function MarkdownView({ content }) {
+      const html = useMemo(() => {
+        if (!content) return "";
+        return marked.parse(content, { breaks: true, gfm: true });
+      }, [content]);
+      return (
+        <div className="markdown-body text-sm text-slate-700"
+          dangerouslySetInnerHTML={{ __html: html }} />
+      );
+    }
+
+    /* ── Pipeline Stage Definitions ──────────────────── */
+    const STAGES = [
+      { id: 1, key: "intake",   label: "Intake",          icon: Sparkles,    desc: "Capture initial product idea" },
+      { id: 2, key: "refine",   label: "Refinement",      icon: Brain,       desc: "AI refines scope & definition" },
+      { id: 3, key: "prd",      label: "PRD",             icon: FileText,    desc: "Generate requirements document" },
+      { id: 4, key: "techspec", label: "Tech Spec",       icon: Cpu,         desc: "Architecture & tech decisions" },
+      { id: 5, key: "estimate", label: "Estimate",        icon: Calculator,  desc: "Cost & timeline projection" },
+    ];
+
+    // Map frontend keys to DB column names
+    const DB_KEY_MAP = { intake: "intake", refine: "refined", prd: "prd", techspec: "tech_spec", estimate: "estimate" };
+
+    /* ── Stage Card (sidebar) ────────────────────────── */
+    function StepCard({ stage, activeStep, outputs, onClick }) {
+      const done = outputs[stage.key] && stage.id < activeStep;
+      const active = stage.id === activeStep;
+      const clickable = outputs[stage.key] || stage.id <= activeStep;
+      const IconComp = stage.icon;
+
+      let ring = "border-slate-200 bg-white";
+      if (active) ring = "border-indigo-500 bg-indigo-50 shadow-md";
+      if (done) ring = "border-green-300 bg-green-50";
+
+      return (
+        <div onClick={() => clickable && onClick(stage.id)}
+          className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${ring} ${clickable ? "cursor-pointer hover:shadow-md" : "opacity-60"}`}>
+          <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${
+            done ? "bg-green-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
+          }`}>
+            {done ? <CheckCircle /> : <IconComp />}
+          </div>
+          <div className="min-w-0">
+            <p className={`text-sm font-semibold ${active ? "text-indigo-700" : done ? "text-green-700" : "text-slate-500"}`}>
+              {stage.label}
+            </p>
+            <p className="text-xs text-slate-400 truncate">{stage.desc}</p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Saved Runs Panel ────────────────────────────── */
+    function SavedRunsPanel({ onLoad, onClose }) {
+      const [runs, setRuns] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch("/api/pipeline")
+          .then(r => r.json())
+          .then(data => { setRuns(data || []); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, []);
+
+      return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800">Saved Pipeline Runs</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[55vh]">
+              {loading ? (
+                <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
+              ) : runs.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No saved runs yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {runs.map(run => (
+                    <button key={run.id} onClick={() => onLoad(run.id)}
+                      className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition">
+                      <p className="text-sm font-medium text-slate-700 truncate">{run.intake?.slice(0, 80) || "Untitled"}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-slate-400">{new Date(run.created_at).toLocaleDateString()}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          run.status === "completed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                        }`}>
+                          Stage {run.current_stage}/5
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Main App ────────────────────────────────────── */
+    function AIWorkflowApp() {
+      const [activeStep, setActiveStep] = useState(1);
+      const [viewStep, setViewStep] = useState(1);
+      const [isProcessing, setIsProcessing] = useState(false);
+      const [error, setError] = useState("");
+      const [runId, setRunId] = useState(null);
+      const [showRuns, setShowRuns] = useState(false);
+      const [outputs, setOutputs] = useState({
+        intake: "", refine: "", prd: "", techspec: "", estimate: ""
+      });
+
+      const currentStage = STAGES[viewStep - 1];
+
+      async function callAPI(stage, inputText) {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage, input_text: inputText }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.error || err.detail || "API request failed");
+        }
+        return (await res.json()).output;
+      }
+
+      async function saveToDB(updates) {
+        try {
+          if (!runId) {
+            const res = await fetch("/api/pipeline", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ intake: outputs.intake }),
+            });
+            const data = await res.json();
+            setRunId(data.id);
+            return data.id;
+          } else {
+            await fetch(`/api/pipeline?id=${runId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updates),
+            });
+            return runId;
+          }
+        } catch (e) {
+          console.error("Save error:", e);
+        }
+      }
+
+      async function loadRun(id) {
+        try {
+          const res = await fetch(`/api/pipeline?id=${id}`);
+          const run = await res.json();
+          if (!run) return;
+          setRunId(run.id);
+          setOutputs({
+            intake: run.intake || "",
+            refine: run.refined || "",
+            prd: run.prd || "",
+            techspec: run.tech_spec || "",
+            estimate: run.estimate || "",
+          });
+          setActiveStep(run.current_stage || 1);
+          setViewStep(run.current_stage || 1);
+          setShowRuns(false);
+        } catch (e) {
+          setError("Failed to load run");
+        }
+      }
+
+      async function generateNextStep() {
+        setError("");
+        setIsProcessing(true);
+        try {
+          const stageMap = {
+            1: { apiStage: "refine",   input: outputs.intake },
+            2: { apiStage: "prd",      input: outputs.refine },
+            3: { apiStage: "techspec", input: outputs.prd },
+            4: { apiStage: "estimate", input: outputs.techspec },
+          };
+          const config = stageMap[activeStep];
+          if (!config) return;
+
+          const result = await callAPI(config.apiStage, config.input);
+          const nextKey = STAGES[activeStep].key;
+          const newOutputs = { ...outputs, [nextKey]: result };
+          setOutputs(newOutputs);
+
+          const newStep = activeStep + 1;
+          setActiveStep(newStep);
+          setViewStep(newStep);
+
+          // Save to Supabase
+          const dbUpdates = {
+            [DB_KEY_MAP[nextKey]]: result,
+            current_stage: newStep,
+          };
+          if (newStep === 5) dbUpdates.status = "completed";
+          if (activeStep === 1) {
+            // First generation — create the run
+            const res = await fetch("/api/pipeline", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ intake: outputs.intake }),
+            });
+            const data = await res.json();
+            setRunId(data.id);
+            // Then update with the result
+            await fetch(`/api/pipeline?id=${data.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(dbUpdates),
+            });
+          } else {
+            await saveToDB(dbUpdates);
+          }
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+
+      function resetPipeline() {
+        setActiveStep(1);
+        setViewStep(1);
+        setError("");
+        setRunId(null);
+        setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "" });
+      }
+
+      const canGenerate = viewStep === activeStep && activeStep < 5 && outputs[currentStage.key].trim().length > 0;
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+          {/* Header */}
+          <header className="bg-white border-b border-slate-200 shadow-sm">
+            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white">
+                  <Sparkles />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-800">Product Forge AI</h1>
+                  <p className="text-xs text-slate-400">Intake to Estimate &middot; Automated Pipeline &middot; Powered by Claude</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowRuns(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                  <FolderOpen /> Load
+                </button>
+                <button onClick={resetPipeline}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                  <RotateCcw /> New
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-7xl mx-auto px-6 py-8 grid lg:grid-cols-[280px_1fr] gap-8">
+            {/* Sidebar */}
+            <aside className="space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Pipeline Stages</p>
+              {STAGES.map(s => (
+                <StepCard key={s.id} stage={s} activeStep={activeStep} outputs={outputs}
+                  onClick={(id) => setViewStep(id)} />
+              ))}
+              {runId && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700">
+                  <Save className="inline mr-1" style={{width:14, height:14}} /> Auto-saved to database
+                </div>
+              )}
+            </aside>
+
+            {/* Main Content */}
+            <main className="space-y-6">
+              {/* Error */}
+              {error && (
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                  <AlertCircle className="shrink-0" /> {error}
+                </div>
+              )}
+
+              {/* Active Stage Panel */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    {React.createElement(currentStage.icon)}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="font-semibold text-slate-800">
+                      Stage {viewStep}: {currentStage.label}
+                    </h2>
+                    <p className="text-xs text-slate-400">{currentStage.desc}</p>
+                  </div>
+                  {viewStep !== activeStep && (
+                    <button onClick={() => setViewStep(activeStep)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                      Go to current stage &rarr;
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-6">
+                  {viewStep === 1 && activeStep === 1 ? (
+                    <textarea
+                      className="w-full h-72 p-4 border border-slate-200 rounded-xl text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
+                      placeholder="Describe your product idea here...&#10;&#10;Include details like:&#10;- What problem does it solve?&#10;- Who is it for?&#10;- What are the key features?&#10;- What technology constraints exist?&#10;- What is the business context?"
+                      value={outputs.intake}
+                      onChange={e => setOutputs(prev => ({ ...prev, intake: e.target.value }))}
+                    />
+                  ) : outputs[currentStage.key] ? (
+                    <div className="w-full max-h-[500px] p-5 border border-slate-200 rounded-xl overflow-auto bg-slate-50/50">
+                      <MarkdownView content={outputs[currentStage.key]} />
+                    </div>
+                  ) : (
+                    <div className="w-full h-72 p-4 border border-slate-200 rounded-xl text-sm text-slate-700 overflow-auto bg-slate-50 flex items-center justify-center">
+                      <span className="text-slate-400 italic">
+                        {viewStep === activeStep
+                          ? "Click the button below to generate this stage..."
+                          : "This stage hasn't been generated yet."}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Bar */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-xs text-slate-400">
+                    {activeStep === 5 && outputs.estimate ? (
+                      <span className="flex items-center gap-1 text-green-600 font-medium">
+                        <CheckCircle /> Pipeline Complete
+                      </span>
+                    ) : (
+                      `Step ${activeStep} of 5`
+                    )}
+                  </div>
+                  {viewStep === activeStep && activeStep < 5 && (
+                    <button
+                      disabled={!canGenerate || isProcessing}
+                      onClick={generateNextStep}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+                        ${canGenerate && !isProcessing
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
+                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        }`}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Generating with Claude...
+                        </>
+                      ) : (
+                        <>
+                          Generate {STAGES[activeStep]?.label} <ArrowRight />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Previous Outputs */}
+              {activeStep > 1 && viewStep === activeStep && (
+                <div className="space-y-4">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Previous Outputs</p>
+                  {STAGES.slice(0, activeStep - 1).map(s => (
+                    outputs[s.key] && (
+                      <details key={s.id} className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <summary className="px-5 py-3 cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-800 flex items-center gap-2">
+                          <CheckCircle className="text-green-500" />
+                          {s.label}
+                        </summary>
+                        <div className="px-5 pb-4">
+                          <MarkdownView content={outputs[s.key]} />
+                        </div>
+                      </details>
+                    )
+                  ))}
+                </div>
+              )}
+            </main>
+          </div>
+
+          {/* Saved Runs Modal */}
+          {showRuns && <SavedRunsPanel onLoad={loadRun} onClose={() => setShowRuns(false)} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<AIWorkflowApp />);
+  </script>
+</body>
+</html>
