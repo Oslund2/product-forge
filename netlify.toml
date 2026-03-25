@@ -3,3 +3,11 @@
 
 [functions]
   directory = "netlify/functions"
+
+[functions."generate"]
+  external_node_modules = ["*"]
+
+[[headers]]
+  for = "/api/generate"
+  [headers.values]
+    Cache-Control = "no-cache"

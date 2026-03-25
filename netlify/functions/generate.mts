@@ -324,7 +324,94 @@ export default async (req: Request, context: Context) => {
     );
   }
 
+  const model = MODEL_MAP[stage] || "claude-haiku-4-5-20251001";
+  const maxTokens = TOKEN_MAP[stage] || 2048;
+
+  // Use streaming for Sonnet / large token stages to avoid timeout
+  const useStreaming = maxTokens > 2048 || model.includes("sonnet");
+
   try {
+    if (useStreaming) {
+      // Stream response — collect chunks and return complete result
+      // Use ReadableStream to keep the connection alive
+      const encoder = new TextEncoder();
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            const response = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model,
+                max_tokens: maxTokens,
+                stream: true,
+                system: SYSTEM_PROMPTS[stage],
+                messages: [{ role: "user", content: input_text }],
+              }),
+            });
+
+            if (!response.ok) {
+              const err = await response.text();
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `Anthropic API error: ${err}` })}\n\n`));
+              controller.close();
+              return;
+            }
+
+            const reader = response.body!.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const data = line.slice(6).trim();
+                if (data === "[DONE]") continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+                    fullText += parsed.delta.text;
+                    // Send progress chunk to keep connection alive
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: parsed.delta.text })}\n\n`));
+                  }
+                } catch {}
+              }
+            }
+
+            // Send final complete result
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ output: fullText, done: true })}\n\n`));
+            controller.close();
+          } catch (e: any) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message || "Internal error" })}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming path for fast Haiku calls
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -333,8 +420,8 @@ export default async (req: Request, context: Context) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: MODEL_MAP[stage] || "claude-haiku-4-5-20251001",
-        max_tokens: TOKEN_MAP[stage] || 2048,
+        model,
+        max_tokens: maxTokens,
         system: SYSTEM_PROMPTS[stage],
         messages: [{ role: "user", content: input_text }],
       }),
