@@ -272,7 +272,7 @@ const MODEL_MAP: Record<string, string> = {
   prd: "claude-haiku-4-5-20251001",
   techspec: "claude-haiku-4-5-20251001",
   estimate: "claude-haiku-4-5-20251001",
-  proto_prompt: "claude-sonnet-4-20250514",
+  proto_prompt: "claude-haiku-4-5-20251001",
 };
 
 const TOKEN_MAP: Record<string, number> = {
@@ -280,7 +280,7 @@ const TOKEN_MAP: Record<string, number> = {
   prd: 2048,
   techspec: 2048,
   estimate: 2048,
-  proto_prompt: 8192,
+  proto_prompt: 4096,
 };
 
 export default async (req: Request, context: Context) => {
