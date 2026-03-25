@@ -748,6 +748,7 @@
       const [staleStages, setStaleStages] = useState(new Set());
       const [editMode, setEditMode] = useState(null); // { stageKey, feedback }
       const [editProcessing, setEditProcessing] = useState(false);
+      const [manualEdit, setManualEdit] = useState(null); // { stageKey, text }
       const [jellyfishContext, setJellyfishContext] = useState(null); // formatted engineering data from Jellyfish
 
       const currentStage = STAGES[viewStep - 1];
@@ -979,10 +980,35 @@
         });
       }
 
+      async function saveManualEdit() {
+        if (!manualEdit) return;
+        const { stageKey, text } = manualEdit;
+        setOutputs(prev => ({ ...prev, [stageKey]: text }));
+        // Mark downstream stages stale
+        const stageIdx = STAGES.findIndex(s => s.key === stageKey);
+        const downstreamKeys = STAGES.filter(s => s.id > STAGES[stageIdx].id && outputs[s.key]).map(s => s.key);
+        if (downstreamKeys.length > 0) {
+          setStaleStages(prev => {
+            const next = new Set(prev);
+            downstreamKeys.forEach(k => next.add(k));
+            return next;
+          });
+        }
+        // Save to DB
+        if (runId) {
+          await fetch(`/api/pipeline?id=${runId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [DB_KEY_MAP[stageKey]]: text }),
+          });
+        }
+        setManualEdit(null);
+      }
+
       function resetPipeline() {
         setActiveStep(1); setViewStep(1); setError(""); setRunId(null); setClarifyMode(null); setClarifyInput("");
         setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
-        setStaleStages(new Set()); setEditMode(null); setJellyfishContext(null);
+        setStaleStages(new Set()); setEditMode(null); setManualEdit(null); setJellyfishContext(null);
       }
 
       const canGenerate = viewStep === activeStep && activeStep < TOTAL_STAGES && outputs[currentStage.key].trim().length > 0;
@@ -1149,11 +1175,39 @@
                     />
                   ) : outputs[currentStage.key] ? (
                     <div>
-                      <div className="w-full max-h-[400px] sm:max-h-[560px] p-4 sm:p-6 bg-anvil-900/30 border border-anvil-800/30 rounded-xl overflow-auto">
-                        <MarkdownView content={outputs[currentStage.key]} />
-                      </div>
+                      {/* Manual edit mode: raw markdown textarea */}
+                      {manualEdit && manualEdit.stageKey === currentStage.key ? (
+                        <div className="fade-up">
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText size={14} className="text-forge-400" />
+                            <span className="font-display text-xs font-semibold text-forge-400">Editing {currentStage.label} — Markdown</span>
+                          </div>
+                          <textarea
+                            className="w-full h-[400px] sm:h-[560px] p-4 sm:p-5 bg-anvil-900/50 border border-anvil-800/50 rounded-xl text-sm text-anvil-200 resize-y focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all font-display text-[13px] leading-relaxed"
+                            value={manualEdit.text}
+                            onChange={e => setManualEdit(prev => ({ ...prev, text: e.target.value }))}
+                          />
+                          <div className="flex items-center gap-2 mt-3">
+                            <button onClick={saveManualEdit}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-semibold bg-forge-500 text-anvil-950 hover:bg-forge-400 transition-all">
+                              <Save size={12} /> Save Changes
+                            </button>
+                            <button onClick={() => setManualEdit(null)}
+                              className="text-xs text-anvil-400 hover:text-anvil-200 font-display transition-colors px-3 py-2">
+                              Cancel
+                            </button>
+                            {manualEdit.text !== outputs[currentStage.key] && (
+                              <span className="text-[10px] text-amber-400 font-display ml-auto">Unsaved changes</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full max-h-[400px] sm:max-h-[560px] p-4 sm:p-6 bg-anvil-900/30 border border-anvil-800/30 rounded-xl overflow-auto">
+                          <MarkdownView content={outputs[currentStage.key]} />
+                        </div>
+                      )}
                       {/* Revise tools for any AI stage with output (not intake, not build) */}
-                      {currentStage.key !== "intake" && currentStage.key !== "build" && (
+                      {currentStage.key !== "intake" && currentStage.key !== "build" && !manualEdit && (
                         <div className="mt-3">
                           {editMode && editMode.stageKey === currentStage.key ? (
                             <div className="border border-forge-500/20 rounded-xl bg-forge-500/5 p-4 fade-up">
@@ -1180,7 +1234,11 @@
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-4 py-2 px-1 border-t border-anvil-800/20 mt-4">
+                            <div className="flex items-center gap-3 py-2 px-1 border-t border-anvil-800/20 mt-4 flex-wrap">
+                              <button onClick={() => setManualEdit({ stageKey: currentStage.key, text: outputs[currentStage.key] })}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all">
+                                <FileText size={13} /> Edit Text
+                              </button>
                               <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })}
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all">
                                 <Pencil size={13} /> Revise with AI
