@@ -4,44 +4,132 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Product Forge AI</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forge: { 50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706',700:'#b45309',800:'#92400e',900:'#78350f' },
+            anvil: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',300:'#cbd5e1',400:'#94a3b8',500:'#64748b',600:'#475569',700:'#334155',800:'#1e293b',900:'#0f172a',950:'#0a0e1a' },
+          },
+          fontFamily: {
+            display: ['"JetBrains Mono"', 'monospace'],
+            body: ['"DM Sans"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    textarea::-webkit-scrollbar, .markdown-body::-webkit-scrollbar { width: 8px; }
-    textarea::-webkit-scrollbar-track, .markdown-body::-webkit-scrollbar-track { background: #f1f5f9; }
-    textarea::-webkit-scrollbar-thumb, .markdown-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    textarea::-webkit-scrollbar-thumb:hover, .markdown-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #1e293b; }
-    .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
-    .markdown-body h3 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.25rem; color: #475569; }
-    .markdown-body p { margin: 0.5rem 0; line-height: 1.6; }
-    .markdown-body ul, .markdown-body ol { margin: 0.5rem 0 0.5rem 1.5rem; }
-    .markdown-body li { margin: 0.25rem 0; line-height: 1.5; }
-    .markdown-body strong { color: #1e293b; }
-    .markdown-body blockquote { border-left: 3px solid #6366f1; padding: 0.5rem 1rem; margin: 0.5rem 0; background: #eef2ff; border-radius: 0 0.5rem 0.5rem 0; }
-    .markdown-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
-    .markdown-body th { background: #f1f5f9; padding: 0.5rem; text-align: left; font-weight: 600; border: 1px solid #e2e8f0; }
-    .markdown-body td { padding: 0.5rem; border: 1px solid #e2e8f0; }
-    .markdown-body code { background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.85em; }
-    .markdown-body pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #111827; color: #f1f5f9; }
+
+    /* Noise overlay */
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 256px 256px;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15,23,42,0.5); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Markdown — high contrast on dark */
+    .markdown-body { color: #e2e8f0; line-height: 1.75; }
+    .markdown-body h1 { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.75rem; color: #fbbf24; letter-spacing: -0.02em; }
+    .markdown-body h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: #fcd34d; border-bottom: 1px solid rgba(253,211,77,0.2); padding-bottom: 0.5rem; }
+    .markdown-body h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.25rem; color: #f8fafc; }
+    .markdown-body p { margin: 0.5rem 0; font-size: 0.9rem; color: #e2e8f0; }
+    .markdown-body ul, .markdown-body ol { margin: 0.5rem 0 0.5rem 1.25rem; font-size: 0.9rem; color: #e2e8f0; }
+    .markdown-body li { margin: 0.3rem 0; }
+    .markdown-body li::marker { color: #fbbf24; }
+    .markdown-body strong { color: #ffffff; font-weight: 600; }
+    .markdown-body blockquote { border-left: 3px solid #fbbf24; padding: 0.75rem 1rem; margin: 0.75rem 0; background: rgba(251,191,36,0.08); border-radius: 0 0.5rem 0.5rem 0; color: #f1f5f9; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    @media (min-width: 640px) { .markdown-body table { display: table; } }
+    .markdown-body th { background: rgba(251,191,36,0.12); padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: #fcd34d; border: 1px solid rgba(148,163,184,0.15); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .markdown-body td { padding: 0.6rem 0.75rem; border: 1px solid rgba(148,163,184,0.12); color: #e2e8f0; }
+    .markdown-body tr:hover td { background: rgba(251,191,36,0.05); }
+    .markdown-body code { background: rgba(148,163,184,0.15); padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.82em; font-family: 'JetBrains Mono', monospace; color: #fcd34d; }
+    .markdown-body pre { background: #1e293b; border: 1px solid rgba(148,163,184,0.15); color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
     .markdown-body pre code { background: none; padding: 0; color: inherit; }
-    .markdown-body hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
+    .markdown-body hr { border: none; border-top: 1px solid rgba(148,163,184,0.15); margin: 1.5rem 0; }
+    .markdown-body a { color: #fbbf24; text-decoration: underline; text-underline-offset: 2px; }
+
+    /* Glow animation for the generate button */
+    @keyframes forgeGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.3), 0 0 40px rgba(245,158,11,0.1); }
+      50% { box-shadow: 0 0 30px rgba(245,158,11,0.5), 0 0 60px rgba(245,158,11,0.2); }
+    }
+    .forge-glow { animation: forgeGlow 2s ease-in-out infinite; }
+
+    /* Pulse for processing */
+    @keyframes forgePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .forge-pulse { animation: forgePulse 1.5s ease-in-out infinite; }
+
+    /* Stage connector line */
+    .stage-connector { position: relative; }
+    .stage-connector::before {
+      content: ''; position: absolute; left: 19px; top: -4px; width: 2px; height: calc(100% + 8px);
+      background: linear-gradient(to bottom, rgba(148,163,184,0.25), rgba(148,163,184,0.08));
+    }
+    .stage-connector:first-child::before { top: 50%; height: 50%; }
+    .stage-connector:last-child::before { height: 50%; }
+
+    /* Fade-in animation */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.4s ease-out forwards; }
+
+    /* Glass panel */
+    .glass { background: rgba(30,41,59,0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(148,163,184,0.12); }
+
+    /* Print Styles */
+    @media print {
+      body { background: white !important; color: #1e293b !important; }
+      body::before { display: none; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+    .print-only { display: none; }
+
+    /* Hide scrollbar for mobile pill strip */
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+    /* Mobile touch targets */
+    @media (max-width: 639px) {
+      .markdown-body h1 { font-size: 1.2rem; }
+      .markdown-body h2 { font-size: 1rem; }
+      .markdown-body h3 { font-size: 0.9rem; }
+      .markdown-body p, .markdown-body li { font-size: 0.85rem; }
+      .markdown-body pre { font-size: 0.75rem; padding: 0.75rem; }
+      .markdown-body blockquote { padding: 0.5rem 0.75rem; }
+    }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
-  <div id="root"></div>
+<body class="min-h-screen">
+  <div id="root" class="relative z-10"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
     /* ── Icon Components ─────────────────────────────── */
-    const Icon = ({ children, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+    const Icon = ({ children, className = "", size = 20 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
         fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
         strokeLinejoin="round" className={className}>
         {children}
@@ -59,6 +147,32 @@
     const RotateCcw = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></Icon>;
     const Save = (p) => <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
     const FolderOpen = (p) => <Icon {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></Icon>;
+    const Printer = (p) => <Icon {...p}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></Icon>;
+    const Mail = (p) => <Icon {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></Icon>;
+    const ChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+    const Zap = (p) => <Icon {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>;
+    const ExternalLink = (p) => <Icon {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Icon>;
+    const Menu = (p) => <Icon {...p}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></Icon>;
+    const X = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+    const Terminal = (p) => <Icon {...p}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></Icon>;
+    const Rocket = (p) => <Icon {...p}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></Icon>;
+    const Pencil = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>;
+    const Download = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
+    const Clipboard = (p) => <Icon {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></Icon>;
+
+    /* ── Forge Logo ──────────────────────────────────── */
+    function ForgeLogo() {
+      return (
+        <div className="relative w-10 h-10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-forge-500 to-forge-700 rounded-lg rotate-3" style={{opacity:0.8}} />
+          <div className="absolute inset-0 bg-gradient-to-br from-forge-400 to-forge-600 rounded-lg -rotate-1" />
+          <svg viewBox="0 0 24 24" className="relative w-5 h-5 text-anvil-950" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>
+            <path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/>
+          </svg>
+        </div>
+      );
+    }
 
     /* ── Markdown Renderer ───────────────────────────── */
     function MarkdownView({ content }) {
@@ -67,48 +181,154 @@
         return marked.parse(content, { breaks: true, gfm: true });
       }, [content]);
       return (
-        <div className="markdown-body text-sm text-slate-700"
+        <div className="markdown-body"
           dangerouslySetInnerHTML={{ __html: html }} />
       );
     }
 
+    /* ── Print Utility ───────────────────────────────── */
+    function openPrintWindow(title, subtitle, htmlContent) {
+      const printWin = window.open("", "_blank", "width=900,height=700");
+      printWin.document.write(`<!DOCTYPE html>
+<html><head>
+  <title>${title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; color: #1e293b; padding: 2.5rem; max-width: 900px; margin: 0 auto; }
+    .print-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.25rem; border-bottom: 3px solid #d97706; }
+    .print-header h1 { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; color: #0f172a; margin-bottom: 0.25rem; letter-spacing: -0.02em; }
+    .print-header .subtitle { color: #64748b; font-size: 0.9rem; }
+    .print-header .date { color: #94a3b8; font-size: 0.8rem; margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace; }
+    .section { margin-bottom: 2rem; break-inside: avoid; }
+    .section-title { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; color: #92400e; padding: 0.5rem 0; border-bottom: 2px solid #fde68a; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .section-content h1 { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #0f172a; }
+    .section-content h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.05rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
+    .section-content h3 { font-size: 0.95rem; font-weight: 600; margin: 0.75rem 0 0.25rem; color: #475569; }
+    .section-content p { margin: 0.5rem 0; line-height: 1.65; font-size: 0.88rem; }
+    .section-content ul, .section-content ol { margin: 0.5rem 0 0.5rem 1.5rem; font-size: 0.88rem; }
+    .section-content li { margin: 0.25rem 0; line-height: 1.5; }
+    .section-content strong { color: #0f172a; }
+    .section-content blockquote { border-left: 3px solid #d97706; padding: 0.5rem 1rem; margin: 0.5rem 0; background: #fffbeb; }
+    .section-content table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.82rem; }
+    .section-content th { background: #fef3c7; padding: 0.5rem; text-align: left; font-weight: 600; border: 1px solid #fde68a; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; }
+    .section-content td { padding: 0.5rem; border: 1px solid #e2e8f0; }
+    .section-content code { background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.82em; font-family: 'JetBrains Mono', monospace; }
+    .section-content pre { background: #f8fafc; color: #334155; padding: 1rem; border-radius: 0.25rem; overflow-x: auto; margin: 0.75rem 0; font-size: 0.82rem; border: 1px solid #e2e8f0; }
+    .section-content pre code { background: none; padding: 0; }
+    .section-content hr { border: none; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
+    .rfp-header { background: #fffbeb; border: 1px solid #fde68a; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 0.5rem; }
+    .rfp-header dl { display: grid; grid-template-columns: 120px 1fr; gap: 0.25rem 1rem; }
+    .rfp-header dt { font-weight: 600; color: #92400e; font-size: 0.75rem; text-transform: uppercase; padding: 0.25rem 0; font-family: 'JetBrains Mono', monospace; }
+    .rfp-header dd { color: #1e293b; font-size: 0.9rem; padding: 0.25rem 0; }
+    .page-break { break-before: page; }
+    .toolbar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; justify-content: flex-end; }
+    .toolbar button { background: #d97706; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+    .toolbar button:hover { background: #b45309; }
+    @media print { .toolbar { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
+  ${htmlContent}
+</body></html>`);
+      printWin.document.close();
+    }
+
+    /* ── PDF Generation Utility ────────────────────────── */
+    async function generatePDF(title, htmlContent, filename) {
+      const { jsPDF } = window.jspdf;
+      const container = document.createElement("div");
+      container.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:white;color:#1e293b;padding:40px;font-family:'DM Sans',sans-serif;";
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
+      try {
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const contentWidth = pageWidth - margin * 2;
+        const imgHeight = (canvas.height * contentWidth) / canvas.width;
+        let position = 0;
+        const usableHeight = pageHeight - margin * 2;
+        while (position < imgHeight) {
+          if (position > 0) pdf.addPage();
+          pdf.addImage(imgData, "PNG", margin, margin - position, contentWidth, imgHeight);
+          // Footer
+          pdf.setFontSize(7);
+          pdf.setTextColor(148, 163, 184);
+          pdf.text(`Product Forge AI  //  ${title}`, margin, pageHeight - 5);
+          pdf.text(`Page ${pdf.internal.getNumberOfPages()}`, pageWidth - margin - 10, pageHeight - 5);
+          position += usableHeight;
+        }
+        pdf.save(filename);
+      } finally {
+        document.body.removeChild(container);
+      }
+    }
+
     /* ── Pipeline Stage Definitions ──────────────────── */
     const STAGES = [
-      { id: 1, key: "intake",   label: "Intake",          icon: Sparkles,    desc: "Capture initial product idea" },
-      { id: 2, key: "refine",   label: "Refinement",      icon: Brain,       desc: "AI refines scope & definition" },
-      { id: 3, key: "prd",      label: "PRD",             icon: FileText,    desc: "Generate requirements document" },
-      { id: 4, key: "techspec", label: "Tech Spec",       icon: Cpu,         desc: "Architecture & tech decisions" },
-      { id: 5, key: "estimate", label: "Estimate",        icon: Calculator,  desc: "Cost & timeline projection" },
+      { id: 1, key: "intake",        label: "Intake",            icon: Sparkles,   desc: "Capture initial product idea",          num: "01" },
+      { id: 2, key: "refine",        label: "Refine",            icon: Brain,      desc: "AI refines scope & definition",         num: "02" },
+      { id: 3, key: "prd",           label: "PRD",               icon: FileText,   desc: "Generate requirements document",        num: "03" },
+      { id: 4, key: "techspec",      label: "Tech Spec",         icon: Cpu,        desc: "Architecture & tech decisions",         num: "04" },
+      { id: 5, key: "estimate",      label: "Estimate",          icon: Calculator, desc: "Cost & timeline projection",            num: "05" },
+      { id: 6, key: "proto_prompt",  label: "Prototype Prompt",  icon: Terminal,   desc: "Generate Claude Code build prompt",     num: "06" },
+      { id: 7, key: "build",         label: "Build",             icon: Rocket,     desc: "Execute prototype with Claude Code",    num: "07" },
     ];
 
-    // Map frontend keys to DB column names
-    const DB_KEY_MAP = { intake: "intake", refine: "refined", prd: "prd", techspec: "tech_spec", estimate: "estimate" };
+    const TOTAL_STAGES = STAGES.length;
 
-    /* ── Stage Card (sidebar) ────────────────────────── */
-    function StepCard({ stage, activeStep, outputs, onClick }) {
+    const DB_KEY_MAP = { intake: "intake", refine: "refined", prd: "prd", techspec: "tech_spec", estimate: "estimate", proto_prompt: "proto_prompt", build: "build_status" };
+
+    /* ── Stage Node (sidebar) ────────────────────────── */
+    function StageNode({ stage, activeStep, outputs, onClick, isLast, staleStages }) {
       const done = outputs[stage.key] && stage.id < activeStep;
       const active = stage.id === activeStep;
+      const stale = staleStages && staleStages.has(stage.key);
       const clickable = outputs[stage.key] || stage.id <= activeStep;
       const IconComp = stage.icon;
 
-      let ring = "border-slate-200 bg-white";
-      if (active) ring = "border-indigo-500 bg-indigo-50 shadow-md";
-      if (done) ring = "border-green-300 bg-green-50";
-
       return (
-        <div onClick={() => clickable && onClick(stage.id)}
-          className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${ring} ${clickable ? "cursor-pointer hover:shadow-md" : "opacity-60"}`}>
-          <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${
-            done ? "bg-green-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
-          }`}>
-            {done ? <CheckCircle /> : <IconComp />}
+        <div className="relative" style={{paddingLeft: '38px'}}>
+          {/* Connector line */}
+          {!isLast && (
+            <div className="absolute left-[18px] top-[36px] w-[2px] h-[calc(100%)]"
+              style={{background: stale ? 'linear-gradient(to bottom, #f59e0b, rgba(245,158,11,0.2))' : done ? 'linear-gradient(to bottom, #16a34a, rgba(22,163,74,0.2))' : active ? 'linear-gradient(to bottom, #f59e0b, rgba(245,158,11,0.1))' : 'rgba(148,163,184,0.1)'}} />
+          )}
+          {/* Node dot */}
+          <div className="absolute left-[10px] top-[10px]">
+            <div className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+              stale ? 'border-amber-500 bg-amber-500' : done ? 'border-green-500 bg-green-500' : active ? 'border-forge-500 bg-forge-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 'border-anvil-700 bg-anvil-900'
+            }`}>
+              {stale && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+              {!stale && done && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+              {active && !stale && <div className="w-1.5 h-1.5 rounded-full bg-anvil-950" />}
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className={`text-sm font-semibold ${active ? "text-indigo-700" : done ? "text-green-700" : "text-slate-500"}`}>
-              {stage.label}
-            </p>
-            <p className="text-xs text-slate-400 truncate">{stage.desc}</p>
-          </div>
+          {/* Content */}
+          <button
+            onClick={() => clickable && onClick(stage.id)}
+            disabled={!clickable}
+            className={`w-full text-left p-3 rounded-lg transition-all duration-200 group ${
+              active ? 'bg-forge-500/10 border border-forge-500/20' :
+              done ? 'hover:bg-green-500/5 border border-transparent hover:border-green-500/10' :
+              clickable ? 'hover:bg-anvil-800/50 border border-transparent' : 'opacity-40 border border-transparent cursor-default'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className={`font-display text-[10px] font-bold tracking-wider ${
+                stale ? 'text-amber-500' : done ? 'text-green-500' : active ? 'text-forge-500' : 'text-anvil-300'
+              }`}>{stage.num}</span>
+              <span className={`font-display text-sm font-semibold tracking-tight ${
+                stale ? 'text-amber-400' : active ? 'text-forge-400' : done ? 'text-green-400' : 'text-anvil-100'
+              }`}>{stage.label}</span>
+            </div>
+            <p className={`text-xs mt-1 ml-8 ${active ? 'text-anvil-400' : 'text-anvil-400'}`}>{stage.desc}</p>
+          </button>
         </div>
       );
     }
@@ -126,29 +346,29 @@
       }, []);
 
       return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800">Saved Pipeline Runs</h3>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" onClick={onClose}>
+          <div className="glass rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[70vh] overflow-hidden fade-up" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-anvil-800/50 flex items-center justify-between">
+              <h3 className="font-display font-semibold text-forge-400 text-sm tracking-tight">Saved Pipeline Runs</h3>
+              <button onClick={onClose} className="text-anvil-300 hover:text-anvil-300 text-lg transition-colors">&times;</button>
             </div>
             <div className="p-4 overflow-auto max-h-[55vh]">
               {loading ? (
-                <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
+                <p className="text-sm text-anvil-300 text-center py-8 font-display">Loading...</p>
               ) : runs.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-8">No saved runs yet.</p>
+                <p className="text-sm text-anvil-300 text-center py-8">No saved runs yet.</p>
               ) : (
                 <div className="space-y-2">
                   {runs.map(run => (
                     <button key={run.id} onClick={() => onLoad(run.id)}
-                      className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition">
-                      <p className="text-sm font-medium text-slate-700 truncate">{run.intake?.slice(0, 80) || "Untitled"}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs text-slate-400">{new Date(run.created_at).toLocaleDateString()}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          run.status === "completed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                      className="w-full text-left p-3 rounded-lg border border-anvil-800/50 hover:border-forge-500/30 hover:bg-forge-500/5 transition-all group">
+                      <p className="text-sm font-medium text-anvil-200 truncate group-hover:text-forge-300 transition-colors">{run.intake?.slice(0, 80) || "Untitled"}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-xs text-anvil-400 font-display">{new Date(run.created_at).toLocaleDateString()}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded font-display font-medium ${
+                          run.status === "completed" ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-forge-500/10 text-forge-400 border border-forge-500/20"
                         }`}>
-                          Stage {run.current_stage}/5
+                          {run.current_stage}/{TOTAL_STAGES}
                         </span>
                       </div>
                     </button>
@@ -157,6 +377,306 @@
               )}
             </div>
           </div>
+        </div>
+      );
+    }
+
+    /* ── Print Menu ──────────────────────────────────── */
+    function PrintMenu({ outputs }) {
+      const [open, setOpen] = useState(false);
+      const menuRef = useRef(null);
+
+      useEffect(() => {
+        function handleClick(e) { if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false); }
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+      }, []);
+
+      const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      const projectName = outputs.intake ? outputs.intake.split("\n")[0].slice(0, 60) : "Untitled Project";
+
+      function renderMd(text) { return marked.parse(text || "", { breaks: true, gfm: true }); }
+
+      function printSection(stageKey) {
+        const stage = STAGES.find(s => s.key === stageKey);
+        if (!stage || !outputs[stageKey]) return;
+        const content = stageKey === "intake"
+          ? `<div class="section-content"><p style="white-space:pre-wrap">${outputs.intake.replace(/</g,"&lt;")}</p></div>`
+          : `<div class="section-content">${renderMd(outputs[stageKey])}</div>`;
+        openPrintWindow(`${stage.label} - ${projectName}`, stage.desc,
+          `<div class="print-header"><h1>${stage.label}</h1><div class="subtitle">${projectName}</div><div class="date">Generated ${today} // Product Forge AI</div></div><div class="section">${content}</div>`);
+      }
+
+      function printAll() {
+        const completedStages = STAGES.filter(s => outputs[s.key]);
+        if (completedStages.length === 0) return;
+        const sections = completedStages.map((s, i) => {
+          const content = s.key === "intake" ? `<p style="white-space:pre-wrap">${outputs.intake.replace(/</g,"&lt;")}</p>` : renderMd(outputs[s.key]);
+          return `<div class="section ${i > 0 ? 'page-break' : ''}"><div class="section-title">${s.num} // ${s.label}</div><div class="section-content">${content}</div></div>`;
+        }).join("\n");
+        openPrintWindow(`Full Pipeline - ${projectName}`, "Complete pipeline output",
+          `<div class="print-header"><h1>Product Forge AI // Full Pipeline Report</h1><div class="subtitle">${projectName}</div><div class="date">Generated ${today} // ${completedStages.map(s => s.label).join(" > ")}</div></div>${sections}`);
+      }
+
+      function printRFPEmail() {
+        if (!outputs.prd) return alert("PRD must be generated before creating an RFP email.");
+        const sections = [];
+        sections.push(`<div class="section"><div class="section-title">Product Requirements Document (PRD)</div><div class="section-content">${renderMd(outputs.prd)}</div></div>`);
+        if (outputs.techspec) sections.push(`<div class="section page-break"><div class="section-title">Technical Specification</div><div class="section-content">${renderMd(outputs.techspec)}</div></div>`);
+        if (outputs.estimate) sections.push(`<div class="section page-break"><div class="section-title">Cost &amp; Timeline Estimate</div><div class="section-content">${renderMd(outputs.estimate)}</div></div>`);
+        openPrintWindow(`RFP - ${projectName}`, "Request for Proposal", `
+          <div class="print-header"><h1>Request for Proposal (RFP)</h1><div class="subtitle">${projectName}</div><div class="date">Prepared ${today} // Product Forge AI</div></div>
+          <div class="rfp-header"><dl><dt>From</dt><dd>[Your Name / Department]</dd><dt>To</dt><dd>[Vendor / Development Team]</dd><dt>Date</dt><dd>${today}</dd><dt>Subject</dt><dd>RFP: ${projectName}</dd><dt>Response Due</dt><dd>[Due Date]</dd></dl></div>
+          <div class="section"><div class="section-title">Introduction &amp; Background</div><div class="section-content"><p>We are seeking proposals from qualified vendors/teams to design, develop, and deliver the solution described in this RFP.</p><h3>Original Request</h3><p style="white-space:pre-wrap;background:#fffbeb;padding:1rem;border-radius:0.5rem;border:1px solid #fde68a">${outputs.intake.replace(/</g,"&lt;")}</p>${outputs.refine ? `<h3>Refined Scope</h3><div>${renderMd(outputs.refine)}</div>` : ""}</div></div>
+          ${sections.join("\n")}
+          <div class="section page-break"><div class="section-title">Submission Requirements</div><div class="section-content"><p>Proposals should include:</p><ol><li><strong>Company Overview</strong></li><li><strong>Technical Approach</strong></li><li><strong>Project Plan</strong></li><li><strong>Staffing Plan</strong></li><li><strong>Cost Proposal</strong></li><li><strong>References</strong> (3+)</li><li><strong>Risk Mitigation</strong></li><li><strong>Warranty &amp; Support</strong></li></ol><h3>Evaluation Criteria</h3><table><thead><tr><th>Criteria</th><th>Weight</th></tr></thead><tbody><tr><td>Technical Approach &amp; Architecture</td><td>30%</td></tr><tr><td>Team Experience &amp; Qualifications</td><td>20%</td></tr><tr><td>Cost Competitiveness</td><td>20%</td></tr><tr><td>Timeline &amp; Delivery Plan</td><td>15%</td></tr><tr><td>References &amp; Past Performance</td><td>15%</td></tr></tbody></table></div></div>
+          <div class="section"><div class="section-title">Contact Information</div><div class="section-content"><p>For questions regarding this RFP:</p><p><strong>[Contact Name]</strong><br/>[Title]<br/>[Email]<br/>[Phone]</p><p style="margin-top:1.5rem;color:#94a3b8;font-size:0.8rem"><em>Generated using Product Forge AI. Subject to further discussion and refinement.</em></p></div></div>`);
+      }
+
+      const hasAnyOutput = STAGES.some(s => outputs[s.key]);
+      if (!hasAnyOutput) return null;
+
+      return (
+        <div className="relative" ref={menuRef}>
+          <button onClick={() => setOpen(!open)}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-anvil-600 hover:text-anvil-200 transition-all">
+            <Printer size={14} /> Export <ChevronDown size={12} />
+          </button>
+          {open && (
+            <div className="absolute right-0 top-full mt-2 w-60 glass rounded-xl z-50 py-1 overflow-hidden fade-up">
+              <div className="px-3 py-2 text-[10px] font-display font-bold text-anvil-400 uppercase tracking-widest">Sections</div>
+              {STAGES.map(s => outputs[s.key] && (
+                <button key={s.id} onClick={() => { printSection(s.key); setOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-anvil-300 hover:bg-forge-500/10 hover:text-forge-400 flex items-center gap-2 transition-colors">
+                  <span className="font-display text-[10px] text-anvil-400">{s.num}</span> {s.label}
+                </button>
+              ))}
+              <div className="border-t border-anvil-800/50 my-1" />
+              <button onClick={() => { printAll(); setOpen(false); }}
+                className="w-full text-left px-4 py-2 text-sm text-forge-400 hover:bg-forge-500/10 flex items-center gap-2 font-medium transition-colors">
+                <Printer size={14} className="text-forge-500" /> All Stages
+              </button>
+              <div className="border-t border-anvil-800/50 my-1" />
+              <button onClick={() => { printRFPEmail(); setOpen(false); }}
+                className="w-full text-left px-4 py-2 text-sm text-anvil-300 hover:bg-forge-500/10 hover:text-forge-400 flex items-center gap-2 font-medium transition-colors"
+                disabled={!outputs.prd} style={!outputs.prd ? {opacity:0.3, cursor:"not-allowed"} : {}}>
+                <Mail size={14} /> RFP Document
+              </button>
+              <div className="border-t border-anvil-800/50 my-1" />
+              <div className="px-3 py-2 text-[10px] font-display font-bold text-anvil-400 uppercase tracking-widest">PDF Download</div>
+              {STAGES.map(s => outputs[s.key] && (
+                <button key={`pdf-${s.id}`} onClick={() => {
+                  const content = s.key === "intake" ? `<p style="white-space:pre-wrap">${outputs.intake.replace(/</g,"&lt;")}</p>` : renderMd(outputs[s.key]);
+                  generatePDF(s.label, `<div style="text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #d97706"><h1 style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;color:#0f172a">${s.label}</h1><div style="color:#64748b;font-size:0.9rem">${projectName}</div><div style="color:#94a3b8;font-size:0.8rem;margin-top:8px">Generated ${today}</div></div><div>${content}</div>`, `${s.key}-${projectName.replace(/\s+/g,"-").toLowerCase()}.pdf`);
+                  setOpen(false);
+                }}
+                  className="w-full text-left px-4 py-2 text-sm text-anvil-300 hover:bg-forge-500/10 hover:text-forge-400 flex items-center gap-2 transition-colors">
+                  <Download size={14} /> <span className="font-display text-[10px] text-anvil-400">{s.num}</span> {s.label}
+                </button>
+              ))}
+              <button onClick={() => {
+                const completedStages = STAGES.filter(s => outputs[s.key]);
+                if (completedStages.length === 0) return;
+                const sections = completedStages.map(s => {
+                  const content = s.key === "intake" ? `<p style="white-space:pre-wrap">${outputs.intake.replace(/</g,"&lt;")}</p>` : renderMd(outputs[s.key]);
+                  return `<div style="margin-bottom:24px"><div style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:700;color:#92400e;padding:8px 0;border-bottom:2px solid #fde68a;margin-bottom:12px;text-transform:uppercase">${s.num} // ${s.label}</div><div>${content}</div></div>`;
+                }).join("");
+                generatePDF("Full Report", `<div style="text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #d97706"><h1 style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;color:#0f172a">Product Forge AI // Full Report</h1><div style="color:#64748b;font-size:0.9rem">${projectName}</div><div style="color:#94a3b8;font-size:0.8rem;margin-top:8px">Generated ${today}</div></div>${sections}`, `full-report-${projectName.replace(/\s+/g,"-").toLowerCase()}.pdf`);
+                setOpen(false);
+              }}
+                className="w-full text-left px-4 py-2 text-sm text-forge-400 hover:bg-forge-500/10 flex items-center gap-2 font-medium transition-colors">
+                <Download size={14} className="text-forge-500" /> Full Report PDF
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── Integrations Panel ─────────────────────────── */
+    function IntegrationsPanel({ outputs, activeStep }) {
+      const [wrikeStatus, setWrikeStatus] = useState(null);
+      const [waveStatus, setWaveStatus] = useState(null);
+      const [pushing, setPushing] = useState(null);
+      const [result, setResult] = useState(null);
+
+      useEffect(() => {
+        fetch("/api/integrations")
+          .then(r => r.json())
+          .then(data => { setWrikeStatus(data.wrike); setWaveStatus(data.wave); })
+          .catch(() => {});
+      }, []);
+
+      async function pushTo(target) {
+        setPushing(target);
+        setResult(null);
+        try {
+          const pipeline = {
+            intake: outputs.intake,
+            refined: outputs.refine,
+            prd: outputs.prd,
+            tech_spec: outputs.techspec,
+            estimate: outputs.estimate,
+            current_stage: activeStep,
+          };
+          const res = await fetch("/api/integrations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target, action: "push", pipeline }),
+          });
+          const data = await res.json();
+          setResult({ target, ...data });
+        } catch (e) {
+          setResult({ target, success: false, message: e.message });
+        } finally {
+          setPushing(null);
+        }
+      }
+
+      return (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-anvil-800/30 flex items-center gap-3">
+            <Zap size={16} className="text-forge-500" />
+            <span className="font-display text-[10px] font-bold text-anvil-300 uppercase tracking-[0.15em]">Integrations</span>
+          </div>
+          <div className="p-5 grid sm:grid-cols-2 gap-4">
+            {/* Wrike */}
+            <div className="border border-anvil-800/30 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-display font-bold text-anvil-200 text-sm tracking-tight">Wrike</div>
+                  <div className="text-[11px] text-anvil-400 mt-0.5">Project Management</div>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${wrikeStatus?.configured ? 'bg-green-500' : 'bg-anvil-700'}`} />
+              </div>
+              <p className="text-xs text-anvil-300 leading-relaxed">Push PRD, Tech Spec, and Estimate as a Wrike project with tasks and milestones.</p>
+              <button onClick={() => pushTo("wrike")} disabled={pushing === "wrike"}
+                className="mt-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-medium border border-anvil-700 text-anvil-300 hover:border-forge-500/40 hover:text-forge-400 transition-all disabled:opacity-50">
+                {pushing === "wrike" ? "Pushing..." : <><ExternalLink size={12} /> Push to Wrike</>}
+              </button>
+            </div>
+            {/* WAVE */}
+            <div className="border border-anvil-800/30 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-display font-bold text-anvil-200 text-sm tracking-tight">McKinsey WAVE</div>
+                  <div className="text-[11px] text-anvil-400 mt-0.5">Value Creation</div>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${waveStatus?.configured ? 'bg-green-500' : 'bg-anvil-700'}`} />
+              </div>
+              <p className="text-xs text-anvil-300 leading-relaxed">Create a WAVE initiative with business case, artifacts, and impact assessment.</p>
+              <button onClick={() => pushTo("wave")} disabled={pushing === "wave"}
+                className="mt-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-medium border border-anvil-700 text-anvil-300 hover:border-forge-500/40 hover:text-forge-400 transition-all disabled:opacity-50">
+                {pushing === "wave" ? "Pushing..." : <><ExternalLink size={12} /> Push to WAVE</>}
+              </button>
+            </div>
+          </div>
+          {/* Result feedback */}
+          {result && (
+            <div className={`mx-5 mb-5 p-3 rounded-lg text-xs font-display ${
+              result.success ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-forge-500/10 border border-forge-500/20 text-forge-300'
+            }`}>
+              <p className="font-medium">{result.success ? 'Success' : 'Pending Configuration'}</p>
+              <p className="mt-1 text-anvil-400">{result.message}</p>
+              {result.payload && !result.success && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-anvil-300 hover:text-anvil-300 transition-colors">Preview payload that will be sent</summary>
+                  <pre className="mt-2 p-2 bg-anvil-900/50 rounded text-[10px] text-anvil-400 overflow-auto max-h-40">{JSON.stringify(result.payload, null, 2)}</pre>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── Build Stage Panel ─────────────────────────────── */
+    function BuildStagePanel({ protoPrompt, onMarkComplete, buildStatus }) {
+      const [copied, setCopied] = useState(false);
+
+      function copyToClipboard() {
+        navigator.clipboard.writeText(protoPrompt).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        });
+      }
+
+      function downloadAsMd() {
+        const blob = new Blob([protoPrompt], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "prototype-prompt.md";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      const prerequisites = [
+        { label: "Claude Code installed", cmd: "npm install -g @anthropic-ai/claude-code" },
+        { label: "Supabase CLI installed", cmd: "npm install -g supabase" },
+        { label: "Netlify CLI installed", cmd: "npm install -g netlify-cli" },
+        { label: "ANTHROPIC_API_KEY set in environment", cmd: null },
+      ];
+
+      return (
+        <div className="space-y-5">
+          {/* Prerequisites */}
+          <div className="p-4 bg-anvil-900/50 border border-anvil-800/30 rounded-xl">
+            <h3 className="font-display text-xs font-bold text-anvil-300 uppercase tracking-widest mb-3">Prerequisites</h3>
+            <div className="space-y-2">
+              {prerequisites.map((p, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <div className="w-4 h-4 rounded border border-anvil-700 flex items-center justify-center flex-shrink-0">
+                    <div className="w-2 h-2 rounded-sm bg-anvil-600" />
+                  </div>
+                  <span className="text-anvil-300">{p.label}</span>
+                  {p.cmd && <code className="text-[10px] text-anvil-400 bg-anvil-900/80 px-2 py-0.5 rounded hidden sm:inline">{p.cmd}</code>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-3">
+            <button onClick={copyToClipboard}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-display text-sm font-semibold transition-all ${
+                copied ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-gradient-to-r from-forge-600 to-forge-500 text-anvil-950 hover:from-forge-500 hover:to-forge-400 forge-glow"
+              }`}>
+              {copied ? <><CheckCircle size={16} /> Copied!</> : <><Clipboard size={16} /> Copy Prompt to Clipboard</>}
+            </button>
+            <button onClick={downloadAsMd}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-display text-sm font-medium border border-anvil-700 text-anvil-300 hover:border-forge-500/30 hover:text-forge-400 transition-all">
+              <Download size={16} /> Download as .md
+            </button>
+          </div>
+
+          {/* Prompt preview */}
+          <div className="w-full max-h-[400px] sm:max-h-[500px] p-4 sm:p-6 bg-anvil-900/30 border border-anvil-800/30 rounded-xl overflow-auto">
+            <MarkdownView content={protoPrompt} />
+          </div>
+
+          {/* Instructions */}
+          <div className="p-4 bg-anvil-900/50 border border-anvil-800/30 rounded-xl">
+            <h3 className="font-display text-xs font-bold text-anvil-300 uppercase tracking-widest mb-3">How to Build</h3>
+            <ol className="space-y-2 text-sm text-anvil-300 list-decimal list-inside">
+              <li>Open a terminal and create a new project directory: <code className="text-forge-400 bg-anvil-900/80 px-1.5 py-0.5 rounded text-xs">mkdir my-prototype && cd my-prototype</code></li>
+              <li>Start Claude Code: <code className="text-forge-400 bg-anvil-900/80 px-1.5 py-0.5 rounded text-xs">claude</code></li>
+              <li>Paste the copied prompt and let Claude Code build the prototype</li>
+              <li>Follow any setup instructions Claude Code provides (DB migrations, env vars, etc.)</li>
+            </ol>
+          </div>
+
+          {/* Mark complete */}
+          {!buildStatus ? (
+            <button onClick={onMarkComplete}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-display text-sm font-medium border border-anvil-700 text-anvil-300 hover:border-green-500/30 hover:text-green-400 transition-all">
+              <CheckCircle size={16} /> Mark Build as Complete
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-green-500 font-display">
+              <CheckCircle size={16} /> Build marked complete
+            </div>
+          )}
         </div>
       );
     }
@@ -170,10 +690,28 @@
       const [runId, setRunId] = useState(null);
       const [showRuns, setShowRuns] = useState(false);
       const [outputs, setOutputs] = useState({
-        intake: "", refine: "", prd: "", techspec: "", estimate: ""
+        intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: ""
       });
+      const [mobileMenu, setMobileMenu] = useState(false);
+      const [mobileSidebar, setMobileSidebar] = useState(false);
+      const [clarifyMode, setClarifyMode] = useState(null); // { stage, questions, output }
+      const [clarifyInput, setClarifyInput] = useState("");
+      const [clarifyProcessing, setClarifyProcessing] = useState(false);
+      const [staleStages, setStaleStages] = useState(new Set());
+      const [editMode, setEditMode] = useState(null); // { stageKey, feedback }
+      const [editProcessing, setEditProcessing] = useState(false);
 
       const currentStage = STAGES[viewStep - 1];
+
+      function detectClarifyingQuestions(text) {
+        if (!text) return null;
+        const qSection = text.match(/##\s*Clarifying Questions[\s\S]*?(?=\n##\s|$)/i);
+        if (qSection) return qSection[0];
+        const lines = text.split("\n");
+        const qLines = lines.filter(l => l.trim().match(/^\d+[\.\)]\s.*\?$/) || l.trim().match(/^[-*]\s.*\?$/));
+        if (qLines.length >= 2) return qLines.join("\n");
+        return null;
+      }
 
       async function callAPI(stage, inputText) {
         const res = await fetch("/api/generate", {
@@ -191,25 +729,15 @@
       async function saveToDB(updates) {
         try {
           if (!runId) {
-            const res = await fetch("/api/pipeline", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ intake: outputs.intake }),
-            });
+            const res = await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ intake: outputs.intake }) });
             const data = await res.json();
             setRunId(data.id);
             return data.id;
           } else {
-            await fetch(`/api/pipeline?id=${runId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(updates),
-            });
+            await fetch(`/api/pipeline?id=${runId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
             return runId;
           }
-        } catch (e) {
-          console.error("Save error:", e);
-        }
+        } catch (e) { console.error("Save error:", e); }
       }
 
       async function loadRun(id) {
@@ -218,19 +746,12 @@
           const run = await res.json();
           if (!run) return;
           setRunId(run.id);
-          setOutputs({
-            intake: run.intake || "",
-            refine: run.refined || "",
-            prd: run.prd || "",
-            techspec: run.tech_spec || "",
-            estimate: run.estimate || "",
-          });
+          setOutputs({ intake: run.intake || "", refine: run.refined || "", prd: run.prd || "", techspec: run.tech_spec || "", estimate: run.estimate || "", proto_prompt: run.proto_prompt || "", build: run.build_status || "" });
+          setStaleStages(new Set());
           setActiveStep(run.current_stage || 1);
           setViewStep(run.current_stage || 1);
           setShowRuns(false);
-        } catch (e) {
-          setError("Failed to load run");
-        }
+        } catch (e) { setError("Failed to load run"); }
       }
 
       async function generateNextStep() {
@@ -238,177 +759,426 @@
         setIsProcessing(true);
         try {
           const stageMap = {
-            1: { apiStage: "refine",   input: outputs.intake },
-            2: { apiStage: "prd",      input: outputs.refine },
+            1: { apiStage: "refine", input: outputs.intake },
+            2: { apiStage: "prd", input: outputs.refine },
             3: { apiStage: "techspec", input: outputs.prd },
             4: { apiStage: "estimate", input: outputs.techspec },
+            5: { apiStage: "proto_prompt", input: `## Product Requirements Document\n\n${outputs.prd}\n\n## Technical Specification\n\n${outputs.techspec}\n\n## Cost & Timeline Estimate\n\n${outputs.estimate}` },
           };
+
+          // Stage 7 (build) is special — no API call, auto-advance
+          if (activeStep === 6) {
+            setOutputs(prev => ({ ...prev, build: "ready" }));
+            setActiveStep(7);
+            setViewStep(7);
+            if (runId) await saveToDB({ build_status: "ready", current_stage: 7 });
+            return;
+          }
+
           const config = stageMap[activeStep];
           if (!config) return;
-
           const result = await callAPI(config.apiStage, config.input);
           const nextKey = STAGES[activeStep].key;
-          const newOutputs = { ...outputs, [nextKey]: result };
-          setOutputs(newOutputs);
+          setOutputs(prev => ({ ...prev, [nextKey]: result }));
+
+          // Check for clarifying questions
+          const questions = detectClarifyingQuestions(result);
+          if (questions) {
+            setClarifyMode({ stageKey: nextKey, apiStage: config.apiStage, questions, originalInput: config.input });
+          }
 
           const newStep = activeStep + 1;
           setActiveStep(newStep);
           setViewStep(newStep);
-
-          // Save to Supabase
-          const dbUpdates = {
-            [DB_KEY_MAP[nextKey]]: result,
-            current_stage: newStep,
-          };
-          if (newStep === 5) dbUpdates.status = "completed";
+          const dbUpdates = { [DB_KEY_MAP[nextKey]]: result, current_stage: newStep };
+          if (newStep === TOTAL_STAGES) dbUpdates.status = "completed";
           if (activeStep === 1) {
-            // First generation — create the run
-            const res = await fetch("/api/pipeline", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ intake: outputs.intake }),
-            });
+            const res = await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ intake: outputs.intake }) });
             const data = await res.json();
             setRunId(data.id);
-            // Then update with the result
-            await fetch(`/api/pipeline?id=${data.id}`, {
+            await fetch(`/api/pipeline?id=${data.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dbUpdates) });
+          } else { await saveToDB(dbUpdates); }
+        } catch (e) { setError(e.message); } finally { setIsProcessing(false); }
+      }
+
+      async function submitClarification(userAnswers) {
+        if (!clarifyMode) return;
+        setClarifyProcessing(true);
+        setError("");
+        try {
+          const followUp = `Here is the original input:\n\n${clarifyMode.originalInput}\n\nYou asked clarifying questions. Here are the answers:\n\n${userAnswers}\n\nPlease regenerate your full output incorporating these answers. Do not ask the same questions again.`;
+          const result = await callAPI(clarifyMode.apiStage, followUp);
+          setOutputs(prev => ({ ...prev, [clarifyMode.stageKey]: result }));
+          setClarifyMode(null);
+          setClarifyInput("");
+          // Update DB
+          if (runId) {
+            await fetch(`/api/pipeline?id=${runId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(dbUpdates),
+              body: JSON.stringify({ [DB_KEY_MAP[clarifyMode.stageKey]]: result }),
             });
-          } else {
-            await saveToDB(dbUpdates);
           }
-        } catch (e) {
-          setError(e.message);
-        } finally {
-          setIsProcessing(false);
-        }
+        } catch (e) { setError(e.message); } finally { setClarifyProcessing(false); }
+      }
+
+      async function answerForMe() {
+        if (!clarifyMode) return;
+        setClarifyProcessing(true);
+        setError("");
+        try {
+          const autoPrompt = `Here is the original input:\n\n${clarifyMode.originalInput}\n\nYou asked these clarifying questions:\n${clarifyMode.questions}\n\nPlease answer these questions yourself using your best judgment based on the domain context, industry best practices, and reasonable assumptions. Then regenerate your full output incorporating those answers. Clearly mark each assumption you made.`;
+          const result = await callAPI(clarifyMode.apiStage, autoPrompt);
+          setOutputs(prev => ({ ...prev, [clarifyMode.stageKey]: result }));
+          setClarifyMode(null);
+          setClarifyInput("");
+          if (runId) {
+            await fetch(`/api/pipeline?id=${runId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ [DB_KEY_MAP[clarifyMode.stageKey]]: result }),
+            });
+          }
+        } catch (e) { setError(e.message); } finally { setClarifyProcessing(false); }
+      }
+
+      async function regenerateStage(stageKey, feedback) {
+        setEditProcessing(true);
+        setError("");
+        try {
+          const stageIdx = STAGES.findIndex(s => s.key === stageKey);
+          const stage = STAGES[stageIdx];
+          // Find the API stage and previous input
+          const apiStageMap = { refine: "refine", prd: "prd", techspec: "techspec", estimate: "estimate", proto_prompt: "proto_prompt" };
+          const inputMap = { refine: outputs.intake, prd: outputs.refine, techspec: outputs.prd, estimate: outputs.techspec, proto_prompt: `## PRD\n\n${outputs.prd}\n\n## Tech Spec\n\n${outputs.techspec}\n\n## Estimate\n\n${outputs.estimate}` };
+          const apiStage = apiStageMap[stageKey];
+          const prevInput = inputMap[stageKey];
+          if (!apiStage) return;
+
+          const composedInput = feedback
+            ? `Here is the original input:\n\n${prevInput}\n\nHere is the previously generated output:\n\n${outputs[stageKey]}\n\nUser feedback for revision:\n\n${feedback}\n\nPlease regenerate the full output incorporating this feedback. Maintain the same format and depth.`
+            : prevInput;
+
+          const result = await callAPI(apiStage, composedInput);
+          setOutputs(prev => ({ ...prev, [stageKey]: result }));
+
+          // Mark all downstream stages as stale
+          const downstreamKeys = STAGES.filter(s => s.id > stage.id && outputs[s.key]).map(s => s.key);
+          setStaleStages(prev => {
+            const next = new Set(prev);
+            downstreamKeys.forEach(k => next.add(k));
+            return next;
+          });
+
+          // Save to DB
+          if (runId) {
+            await fetch(`/api/pipeline?id=${runId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ [DB_KEY_MAP[stageKey]]: result }),
+            });
+          }
+          setEditMode(null);
+        } catch (e) { setError(e.message); } finally { setEditProcessing(false); }
+      }
+
+      async function regenerateStaleStage(stageKey) {
+        // Re-run a stale stage with its (updated) upstream input, no feedback
+        await regenerateStage(stageKey, null);
+        setStaleStages(prev => {
+          const next = new Set(prev);
+          next.delete(stageKey);
+          return next;
+        });
       }
 
       function resetPipeline() {
-        setActiveStep(1);
-        setViewStep(1);
-        setError("");
-        setRunId(null);
-        setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "" });
+        setActiveStep(1); setViewStep(1); setError(""); setRunId(null); setClarifyMode(null); setClarifyInput("");
+        setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
+        setStaleStages(new Set()); setEditMode(null);
       }
 
-      const canGenerate = viewStep === activeStep && activeStep < 5 && outputs[currentStage.key].trim().length > 0;
+      const canGenerate = viewStep === activeStep && activeStep < TOTAL_STAGES && outputs[currentStage.key].trim().length > 0;
+      const progress = ((activeStep - 1) / (TOTAL_STAGES - 1)) * 100;
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="min-h-screen flex flex-col">
+          {/* Progress bar at very top */}
+          <div className="h-[2px] bg-anvil-900 no-print">
+            <div className="h-full bg-gradient-to-r from-forge-600 to-forge-400 transition-all duration-700 ease-out" style={{width: `${progress}%`}} />
+          </div>
+
           {/* Header */}
-          <header className="bg-white border-b border-slate-200 shadow-sm">
-            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white">
-                  <Sparkles />
-                </div>
+          <header className="border-b border-anvil-700/40 no-print sticky top-0 z-40" style={{background:'rgba(17,24,39,0.92)', backdropFilter:'blur(20px)'}}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <ForgeLogo />
                 <div>
-                  <h1 className="text-xl font-bold text-slate-800">Product Forge AI</h1>
-                  <p className="text-xs text-slate-400">Intake to Estimate &middot; Automated Pipeline &middot; Powered by Claude</p>
+                  <h1 className="font-display text-base sm:text-lg font-bold text-anvil-100 tracking-tight">Product Forge</h1>
+                  <p className="font-display text-[9px] sm:text-[10px] text-anvil-400 tracking-widest uppercase hidden sm:block">Intake // Refine // Build</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              {/* Desktop actions */}
+              <div className="hidden sm:flex items-center gap-2">
+                <PrintMenu outputs={outputs} />
                 <button onClick={() => setShowRuns(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                  <FolderOpen /> Load
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-anvil-600 hover:text-anvil-200 transition-all">
+                  <FolderOpen size={14} /> Load
                 </button>
                 <button onClick={resetPipeline}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                  <RotateCcw /> New
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-forge-500/30 hover:text-forge-400 transition-all">
+                  <RotateCcw size={14} /> New
                 </button>
               </div>
+              {/* Mobile menu toggle */}
+              <button onClick={() => setMobileMenu(!mobileMenu)} className="sm:hidden p-2 text-anvil-400 hover:text-anvil-200 transition-colors">
+                {mobileMenu ? <X size={20} /> : <Menu size={20} />}
+              </button>
             </div>
+            {/* Mobile dropdown */}
+            {mobileMenu && (
+              <div className="sm:hidden border-t border-anvil-800/50 px-4 py-3 flex flex-wrap gap-2 fade-up">
+                <PrintMenu outputs={outputs} />
+                <button onClick={() => { setShowRuns(true); setMobileMenu(false); }}
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg">
+                  <FolderOpen size={14} /> Load
+                </button>
+                <button onClick={() => { resetPipeline(); setMobileMenu(false); }}
+                  className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg">
+                  <RotateCcw size={14} /> New
+                </button>
+              </div>
+            )}
           </header>
 
-          <div className="max-w-7xl mx-auto px-6 py-8 grid lg:grid-cols-[280px_1fr] gap-8">
-            {/* Sidebar */}
-            <aside className="space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Pipeline Stages</p>
-              {STAGES.map(s => (
-                <StepCard key={s.id} stage={s} activeStep={activeStep} outputs={outputs}
-                  onClick={(id) => setViewStep(id)} />
-              ))}
+          {/* Mobile stage pills */}
+          <div className="lg:hidden no-print px-4 pt-4 -mb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {STAGES.map(s => {
+                const done = outputs[s.key] && s.id < activeStep;
+                const active = s.id === activeStep;
+                const viewing = s.id === viewStep;
+                const stale = staleStages.has(s.key);
+                const clickable = outputs[s.key] || s.id <= activeStep;
+                return (
+                  <button key={s.id} onClick={() => clickable && setViewStep(s.id)} disabled={!clickable}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full font-display text-[11px] font-semibold transition-all border ${
+                      viewing ? 'border-forge-500/40 bg-forge-500/10 text-forge-400' :
+                      stale ? 'border-amber-500/20 bg-amber-500/5 text-amber-500' :
+                      done ? 'border-green-500/20 bg-green-500/5 text-green-500' :
+                      active ? 'border-forge-500/20 text-forge-500' :
+                      'border-anvil-800/30 text-anvil-400 opacity-50'
+                    }`}>
+                    {stale && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+                    {!stale && done && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                    <span>{s.num}</span>
+                    <span className="hidden xs:inline">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-8 grid lg:grid-cols-[260px_1fr] gap-4 sm:gap-8">
+            {/* Sidebar — desktop only */}
+            <aside className="no-print hidden lg:block">
+              <div className="font-display text-[10px] font-bold text-anvil-400 uppercase tracking-[0.2em] mb-4 pl-[38px]">Pipeline</div>
+              <div className="space-y-1">
+                {STAGES.map((s, i) => (
+                  <StageNode key={s.id} stage={s} activeStep={activeStep} outputs={outputs}
+                    onClick={(id) => setViewStep(id)} isLast={i === STAGES.length - 1} staleStages={staleStages} />
+                ))}
+              </div>
               {runId && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700">
-                  <Save className="inline mr-1" style={{width:14, height:14}} /> Auto-saved to database
+                <div className="mt-6 ml-[38px] flex items-center gap-2 text-[11px] text-green-500/70 font-display">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Synced
                 </div>
               )}
             </aside>
 
             {/* Main Content */}
-            <main className="space-y-6">
+            <main className="space-y-6 min-w-0">
               {/* Error */}
               {error && (
-                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                  <AlertCircle className="shrink-0" /> {error}
+                <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm no-print fade-up">
+                  <AlertCircle className="shrink-0" size={16} /> <span className="font-display text-xs">{error}</span>
                 </div>
               )}
 
               {/* Active Stage Panel */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+              <div className="glass rounded-2xl overflow-hidden fade-up">
+                {/* Stage header */}
+                <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-anvil-800/30 flex items-center gap-3 sm:gap-4">
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    staleStages.has(currentStage.key) ? 'bg-amber-500/10 text-amber-400' : viewStep === activeStep && activeStep < TOTAL_STAGES ? 'bg-forge-500/10 text-forge-400' : outputs[currentStage.key] ? 'bg-green-500/10 text-green-400' : 'bg-anvil-800/50 text-anvil-300'
+                  }`}>
                     {React.createElement(currentStage.icon)}
                   </div>
-                  <div className="flex-1">
-                    <h2 className="font-semibold text-slate-800">
-                      Stage {viewStep}: {currentStage.label}
-                    </h2>
-                    <p className="text-xs text-slate-400">{currentStage.desc}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <span className="font-display text-[10px] font-bold text-anvil-400 tracking-widest">{currentStage.num}</span>
+                      <h2 className="font-display font-bold text-anvil-100 tracking-tight">{currentStage.label}</h2>
+                    </div>
+                    <p className="text-xs text-anvil-300 mt-0.5">{currentStage.desc}</p>
                   </div>
                   {viewStep !== activeStep && (
                     <button onClick={() => setViewStep(activeStep)}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                      Go to current stage &rarr;
+                      className="text-xs font-display text-forge-500 hover:text-forge-400 font-medium no-print transition-colors">
+                      Current &rarr;
                     </button>
                   )}
                 </div>
 
-                <div className="p-6">
+                {/* Stale warning banner */}
+                {staleStages.has(currentStage.key) && (
+                  <div className="mx-4 sm:mx-6 mt-4 flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg fade-up">
+                    <AlertCircle size={14} className="text-amber-400 flex-shrink-0" />
+                    <span className="text-xs text-amber-300 font-display flex-1">This output was generated from earlier input and may be outdated.</span>
+                    <button onClick={() => regenerateStaleStage(currentStage.key)} disabled={editProcessing}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-display text-xs font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all disabled:opacity-50 flex-shrink-0">
+                      {editProcessing ? "Regenerating..." : <><RotateCcw size={12} /> Regenerate</>}
+                    </button>
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className="p-4 sm:p-6">
                   {viewStep === 1 && activeStep === 1 ? (
                     <textarea
-                      className="w-full h-72 p-4 border border-slate-200 rounded-xl text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition"
-                      placeholder="Describe your product idea here...&#10;&#10;Include details like:&#10;- What problem does it solve?&#10;- Who is it for?&#10;- What are the key features?&#10;- What technology constraints exist?&#10;- What is the business context?"
+                      className="w-full h-56 sm:h-80 p-4 sm:p-5 bg-anvil-900/50 border border-anvil-800/50 rounded-xl text-sm text-anvil-200 resize-none focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all placeholder:text-anvil-400 font-body"
+                      placeholder={"Describe your product idea...\n\nInclude details like:\n\u2022 What problem does it solve?\n\u2022 Who is it for?\n\u2022 Key features and constraints\n\u2022 Business context and goals"}
                       value={outputs.intake}
                       onChange={e => setOutputs(prev => ({ ...prev, intake: e.target.value }))}
                     />
+                  ) : currentStage.key === "build" && outputs.proto_prompt ? (
+                    <BuildStagePanel
+                      protoPrompt={outputs.proto_prompt}
+                      buildStatus={outputs.build}
+                      onMarkComplete={async () => {
+                        const ts = new Date().toISOString();
+                        setOutputs(prev => ({ ...prev, build: ts }));
+                        if (runId) await saveToDB({ build_status: ts, status: "completed" });
+                      }}
+                    />
                   ) : outputs[currentStage.key] ? (
-                    <div className="w-full max-h-[500px] p-5 border border-slate-200 rounded-xl overflow-auto bg-slate-50/50">
-                      <MarkdownView content={outputs[currentStage.key]} />
+                    <div>
+                      <div className="w-full max-h-[400px] sm:max-h-[560px] p-4 sm:p-6 bg-anvil-900/30 border border-anvil-800/30 rounded-xl overflow-auto">
+                        <MarkdownView content={outputs[currentStage.key]} />
+                      </div>
+                      {/* Revise button for completed AI stages (not intake, not build) */}
+                      {currentStage.key !== "intake" && currentStage.key !== "build" && currentStage.id < activeStep && (
+                        <div className="mt-3">
+                          {editMode && editMode.stageKey === currentStage.key ? (
+                            <div className="border border-forge-500/20 rounded-xl bg-forge-500/5 p-4 fade-up">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Pencil size={14} className="text-forge-400" />
+                                <span className="font-display text-xs font-semibold text-forge-400">Revise {currentStage.label}</span>
+                              </div>
+                              <textarea
+                                className="w-full h-24 p-3 bg-anvil-900/60 border border-anvil-800/50 rounded-lg text-sm text-anvil-200 resize-none focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all placeholder:text-anvil-400 font-body"
+                                placeholder="What should change? (e.g., 'Make cost estimates more conservative', 'Add mobile app requirements')"
+                                value={editMode.feedback}
+                                onChange={e => setEditMode(prev => ({ ...prev, feedback: e.target.value }))}
+                                disabled={editProcessing}
+                              />
+                              <div className="flex items-center gap-2 mt-3">
+                                <button onClick={() => regenerateStage(currentStage.key, editMode.feedback)}
+                                  disabled={!editMode.feedback.trim() || editProcessing}
+                                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-semibold transition-all ${
+                                    editMode.feedback.trim() && !editProcessing ? "bg-forge-500 text-anvil-950 hover:bg-forge-400" : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
+                                  }`}>
+                                  {editProcessing ? "Regenerating..." : <><ArrowRight size={12} /> Regenerate</>}
+                                </button>
+                                <button onClick={() => setEditMode(null)} className="text-xs text-anvil-400 hover:text-anvil-200 font-display transition-colors px-3 py-2">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })}
+                              className="flex items-center gap-2 text-xs font-display text-anvil-400 hover:text-forge-400 transition-colors">
+                              <Pencil size={12} /> Revise this stage
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="w-full h-72 p-4 border border-slate-200 rounded-xl text-sm text-slate-700 overflow-auto bg-slate-50 flex items-center justify-center">
-                      <span className="text-slate-400 italic">
-                        {viewStep === activeStep
-                          ? "Click the button below to generate this stage..."
-                          : "This stage hasn't been generated yet."}
+                    <div className="w-full h-56 sm:h-80 border border-dashed border-anvil-800/40 rounded-xl flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-anvil-900/50 flex items-center justify-center text-anvil-700">
+                        {React.createElement(currentStage.icon, { size: 24 })}
+                      </div>
+                      <span className="text-sm text-anvil-400">
+                        {viewStep === activeStep ? "Ready to generate" : "Not yet generated"}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Action Bar */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                  <div className="text-xs text-slate-400">
-                    {activeStep === 5 && outputs.estimate ? (
-                      <span className="flex items-center gap-1 text-green-600 font-medium">
-                        <CheckCircle /> Pipeline Complete
+                {/* Clarification Q&A */}
+                {clarifyMode && clarifyMode.stageKey === currentStage.key && (
+                  <div className="mx-4 sm:mx-6 mb-4 border border-forge-500/20 rounded-xl bg-forge-500/5 overflow-hidden fade-up">
+                    <div className="px-4 sm:px-5 py-3 border-b border-forge-500/10 flex items-center gap-2">
+                      <AlertCircle size={14} className="text-forge-400 flex-shrink-0" />
+                      <span className="font-display text-xs font-semibold text-forge-400">Clarifying Questions</span>
+                    </div>
+                    <div className="px-4 sm:px-5 py-3">
+                      <div className="text-xs text-anvil-300 whitespace-pre-wrap mb-3 leading-relaxed">{clarifyMode.questions}</div>
+                      <textarea
+                        className="w-full h-24 sm:h-28 p-3 bg-anvil-900/60 border border-anvil-800/50 rounded-lg text-sm text-anvil-200 resize-none focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all placeholder:text-anvil-400 font-body"
+                        placeholder="Type your answers here..."
+                        value={clarifyInput}
+                        onChange={e => setClarifyInput(e.target.value)}
+                        disabled={clarifyProcessing}
+                      />
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mt-3">
+                        <button
+                          onClick={() => submitClarification(clarifyInput)}
+                          disabled={!clarifyInput.trim() || clarifyProcessing}
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg font-display text-xs font-semibold transition-all ${
+                            clarifyInput.trim() && !clarifyProcessing
+                              ? "bg-forge-500 text-anvil-950 hover:bg-forge-400"
+                              : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
+                          }`}>
+                          {clarifyProcessing ? "Regenerating..." : <><ArrowRight size={12} /> Submit Answers</>}
+                        </button>
+                        <button
+                          onClick={answerForMe}
+                          disabled={clarifyProcessing}
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg font-display text-xs font-medium border border-anvil-700 text-anvil-400 hover:border-forge-500/30 hover:text-forge-300 transition-all disabled:opacity-50">
+                          {clarifyProcessing ? "..." : <><Sparkles size={12} /> Answer for Me</>}
+                        </button>
+                        <button
+                          onClick={() => { setClarifyMode(null); setClarifyInput(""); }}
+                          className="sm:ml-auto text-center text-xs text-anvil-400 hover:text-anvil-400 font-display transition-colors py-1">
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action bar */}
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-anvil-800/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 no-print">
+                  <div className="font-display text-[11px] text-anvil-400">
+                    {activeStep >= TOTAL_STAGES && outputs.build ? (
+                      <span className="flex items-center gap-2 text-green-500">
+                        <CheckCircle size={14} /> Pipeline complete
                       </span>
                     ) : (
-                      `Step ${activeStep} of 5`
+                      <span className="flex items-center gap-2">
+                        <span className="text-forge-500">{activeStep}</span>
+                        <span className="text-anvil-700">/</span>
+                        <span>{TOTAL_STAGES}</span>
+                      </span>
                     )}
                   </div>
-                  {viewStep === activeStep && activeStep < 5 && (
+                  {viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && (
                     <button
                       disabled={!canGenerate || isProcessing}
                       onClick={generateNextStep}
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+                      className={`flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300
                         ${canGenerate && !isProcessing
-                          ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
-                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                          ? "bg-gradient-to-r from-forge-600 to-forge-500 text-anvil-950 hover:from-forge-500 hover:to-forge-400 forge-glow cursor-pointer"
+                          : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
                         }`}
                     >
                       {isProcessing ? (
@@ -417,11 +1187,12 @@
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                           </svg>
-                          Generating with Claude...
+                          <span className="forge-pulse">Forging...</span>
                         </>
                       ) : (
                         <>
-                          Generate {STAGES[activeStep]?.label} <ArrowRight />
+                          Generate {STAGES[activeStep]?.label}
+                          <ArrowRight size={16} />
                         </>
                       )}
                     </button>
@@ -431,16 +1202,17 @@
 
               {/* Previous Outputs */}
               {activeStep > 1 && viewStep === activeStep && (
-                <div className="space-y-4">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Previous Outputs</p>
+                <div className="space-y-3">
+                  <div className="font-display text-[10px] font-bold text-anvil-400 uppercase tracking-[0.2em]">Previous Outputs</div>
                   {STAGES.slice(0, activeStep - 1).map(s => (
                     outputs[s.key] && (
-                      <details key={s.id} className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                        <summary className="px-5 py-3 cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-800 flex items-center gap-2">
-                          <CheckCircle className="text-green-500" />
-                          {s.label}
+                      <details key={s.id} className="glass rounded-xl group">
+                        <summary className="px-5 py-3 cursor-pointer text-sm font-medium text-anvil-400 hover:text-anvil-200 flex items-center gap-3 transition-colors">
+                          <CheckCircle className="text-green-500" size={14} />
+                          <span className="font-display text-[10px] text-anvil-400">{s.num}</span>
+                          <span>{s.label}</span>
                         </summary>
-                        <div className="px-5 pb-4">
+                        <div className="px-5 pb-5 border-t border-anvil-800/30 pt-4">
                           <MarkdownView content={outputs[s.key]} />
                         </div>
                       </details>
@@ -448,10 +1220,14 @@
                   ))}
                 </div>
               )}
+
+              {/* Integrations Panel */}
+              {activeStep >= 3 && outputs.prd && (
+                <IntegrationsPanel outputs={outputs} activeStep={activeStep} />
+              )}
             </main>
           </div>
 
-          {/* Saved Runs Modal */}
           {showRuns && <SavedRunsPanel onLoad={loadRun} onClose={() => setShowRuns(false)} />}
         </div>
       );

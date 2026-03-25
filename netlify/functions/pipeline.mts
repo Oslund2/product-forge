@@ -57,7 +57,7 @@ export default async (req: Request, context: Context) => {
         return new Response(JSON.stringify({ error: "id required" }), { status: 400, headers });
       }
       const body = await req.json();
-      const allowed = ["intake", "refined", "prd", "tech_spec", "estimate", "current_stage", "status"];
+      const allowed = ["intake", "refined", "prd", "tech_spec", "estimate", "proto_prompt", "build_status", "current_stage", "status"];
       const updates: Record<string, any> = { updated_at: new Date().toISOString() };
       for (const key of allowed) {
         if (body[key] !== undefined) updates[key] = body[key];
