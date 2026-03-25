@@ -1152,8 +1152,8 @@
                       <div className="w-full max-h-[400px] sm:max-h-[560px] p-4 sm:p-6 bg-anvil-900/30 border border-anvil-800/30 rounded-xl overflow-auto">
                         <MarkdownView content={outputs[currentStage.key]} />
                       </div>
-                      {/* Revise button for completed AI stages (not intake, not build) */}
-                      {currentStage.key !== "intake" && currentStage.key !== "build" && currentStage.id < activeStep && (
+                      {/* Revise tools for any AI stage with output (not intake, not build) */}
+                      {currentStage.key !== "intake" && currentStage.key !== "build" && (
                         <div className="mt-3">
                           {editMode && editMode.stageKey === currentStage.key ? (
                             <div className="border border-forge-500/20 rounded-xl bg-forge-500/5 p-4 fade-up">
@@ -1174,16 +1174,22 @@
                                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-semibold transition-all ${
                                     editMode.feedback.trim() && !editProcessing ? "bg-forge-500 text-anvil-950 hover:bg-forge-400" : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
                                   }`}>
-                                  {editProcessing ? "Regenerating..." : <><ArrowRight size={12} /> Regenerate</>}
+                                  {editProcessing ? "Regenerating..." : <><ArrowRight size={12} /> Regenerate with Feedback</>}
                                 </button>
                                 <button onClick={() => setEditMode(null)} className="text-xs text-anvil-400 hover:text-anvil-200 font-display transition-colors px-3 py-2">Cancel</button>
                               </div>
                             </div>
                           ) : (
-                            <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })}
-                              className="flex items-center gap-2 text-xs font-display text-anvil-400 hover:text-forge-400 transition-colors">
-                              <Pencil size={12} /> Revise this stage
-                            </button>
+                            <div className="flex items-center gap-4 py-2 px-1 border-t border-anvil-800/20 mt-4">
+                              <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all">
+                                <Pencil size={13} /> Revise with AI
+                              </button>
+                              <button onClick={() => regenerateStage(currentStage.key, null)} disabled={editProcessing}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
+                                <RotateCcw size={13} /> {editProcessing ? "Regenerating..." : "Regenerate"}
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
