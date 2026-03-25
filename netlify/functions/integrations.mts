@@ -25,14 +25,15 @@ interface PipelineData {
 }
 
 interface IntegrationRequest {
-  target: "wrike" | "wave" | "status";
+  target: "wrike" | "wave" | "jellyfish" | "status";
   action: string;
   pipeline: PipelineData;
 }
 
 interface IntegrationStatus {
-  wrike: { configured: boolean; connected: boolean; base_url: string | null };
-  wave:  { configured: boolean; connected: boolean; base_url: string | null };
+  wrike:     { configured: boolean; connected: boolean; base_url: string | null };
+  wave:      { configured: boolean; connected: boolean; base_url: string | null };
+  jellyfish: { configured: boolean; connected: boolean; base_url: string | null };
 }
 
 // ─── Wrike Payload Builders ─────────────────────────────────────────────────
@@ -304,19 +305,156 @@ async function pushToWave(pipeline: PipelineData): Promise<{ success: boolean; m
   };
 }
 
+// ─── Jellyfish Engineering Intelligence ──────────────────────────────────────
+
+/**
+ * Pulls engineering metrics from Jellyfish to inform cost estimates.
+ * Jellyfish API docs: https://app.jellyfish.co (contact api@jellyfish.co)
+ *
+ * Expected env vars:
+ *   JELLYFISH_API_TOKEN  — API token (Authorization: Token <token>)
+ *   JELLYFISH_BASE_URL   — e.g., https://app.jellyfish.co (default)
+ *
+ * Data pulled:
+ *   - Team allocations (where engineering time is spent)
+ *   - Delivery velocity (epics/deliverables throughput)
+ *   - Developer productivity metrics (cycle time, PR throughput)
+ */
+
+interface JellyfishMetrics {
+  allocations: any | null;
+  delivery: any | null;
+  metrics: any | null;
+  fetched_at: string;
+}
+
+async function jellyfishFetch(path: string, token: string, baseUrl: string): Promise<any> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      "Authorization": `Token ${token}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Jellyfish API ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+async function pullFromJellyfish(): Promise<{ success: boolean; message: string; data: JellyfishMetrics | null }> {
+  const token = Netlify.env.get("JELLYFISH_API_TOKEN");
+  const baseUrl = Netlify.env.get("JELLYFISH_BASE_URL") || "https://app.jellyfish.co";
+
+  if (!token) {
+    return {
+      success: false,
+      message: "Jellyfish integration not configured. Set JELLYFISH_API_TOKEN environment variable. Contact api@jellyfish.co for API access.",
+      data: null,
+    };
+  }
+
+  try {
+    // Calculate timeframe: last 3 months
+    const now = new Date();
+    const threeMonthsAgo = new Date(now);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const startParam = `${threeMonthsAgo.toLocaleString("en-US", { month: "short" })}-${String(threeMonthsAgo.getFullYear()).slice(2)}`;
+    const endParam = `${now.toLocaleString("en-US", { month: "short" })}-${String(now.getFullYear()).slice(2)}`;
+
+    // Fetch data in parallel from three domains
+    const [allocations, delivery, metrics] = await Promise.allSettled([
+      jellyfishFetch(
+        `/endpoints/export/v0/allocations/summary?timeframe=${startParam}&end=${endParam}`,
+        token, baseUrl
+      ),
+      jellyfishFetch(
+        `/endpoints/export/v0/delivery/work_category_contents?work_category_slug=epics&timeframe=${startParam}&end=${endParam}`,
+        token, baseUrl
+      ),
+      jellyfishFetch(
+        `/endpoints/export/v0/metrics/team_summary?timeframe=${startParam}&end=${endParam}`,
+        token, baseUrl
+      ),
+    ]);
+
+    const data: JellyfishMetrics = {
+      allocations: allocations.status === "fulfilled" ? allocations.value : null,
+      delivery: delivery.status === "fulfilled" ? delivery.value : null,
+      metrics: metrics.status === "fulfilled" ? metrics.value : null,
+      fetched_at: now.toISOString(),
+    };
+
+    const successCount = [allocations, delivery, metrics].filter(r => r.status === "fulfilled").length;
+
+    return {
+      success: successCount > 0,
+      message: successCount === 3
+        ? `Successfully fetched all Jellyfish data (allocations, delivery, metrics) for ${startParam} to ${endParam}.`
+        : `Partially fetched Jellyfish data (${successCount}/3 endpoints succeeded) for ${startParam} to ${endParam}.`,
+      data,
+    };
+  } catch (e: any) {
+    return { success: false, message: `Jellyfish connection error: ${e.message}`, data: null };
+  }
+}
+
+/**
+ * Formats Jellyfish data into a context block that can be injected into
+ * the Estimate stage prompt to ground cost projections in real engineering data.
+ */
+function formatJellyfishContext(data: JellyfishMetrics): string {
+  const sections: string[] = [];
+
+  sections.push("## Real Engineering Data from Jellyfish\n");
+  sections.push("The following data comes from your organization's Jellyfish engineering intelligence platform.");
+  sections.push("Use this data to ground your estimates in actual team performance rather than industry averages.\n");
+
+  if (data.allocations) {
+    sections.push("### Team Allocation Data");
+    sections.push("```json");
+    sections.push(JSON.stringify(data.allocations, null, 2).slice(0, 3000));
+    sections.push("```\n");
+  }
+
+  if (data.delivery) {
+    sections.push("### Delivery Velocity (Epics/Deliverables)");
+    sections.push("```json");
+    sections.push(JSON.stringify(data.delivery, null, 2).slice(0, 3000));
+    sections.push("```\n");
+  }
+
+  if (data.metrics) {
+    sections.push("### Team Performance Metrics (DORA/Productivity)");
+    sections.push("```json");
+    sections.push(JSON.stringify(data.metrics, null, 2).slice(0, 3000));
+    sections.push("```\n");
+  }
+
+  sections.push(`*Data fetched: ${data.fetched_at}*`);
+
+  return sections.join("\n");
+}
+
 // ─── Status Check ───────────────────────────────────────────────────────────
 
 function getIntegrationStatus(): IntegrationStatus {
   return {
     wrike: {
       configured: !!Netlify.env.get("WRIKE_API_TOKEN"),
-      connected: false, // Would be true after a successful API call
+      connected: false,
       base_url: Netlify.env.get("WRIKE_BASE_URL") || "https://www.wrike.com/api/v4",
     },
     wave: {
       configured: !!(Netlify.env.get("WAVE_API_KEY") && Netlify.env.get("WAVE_BASE_URL")),
       connected: false,
       base_url: Netlify.env.get("WAVE_BASE_URL") || null,
+    },
+    jellyfish: {
+      configured: !!Netlify.env.get("JELLYFISH_API_TOKEN"),
+      connected: false,
+      base_url: Netlify.env.get("JELLYFISH_BASE_URL") || "https://app.jellyfish.co",
     },
   };
 }
@@ -356,6 +494,16 @@ export default async (req: Request, context: Context) => {
       break;
     case "wave":
       result = await pushToWave(pipeline);
+      break;
+    case "jellyfish":
+      const jfResult = await pullFromJellyfish();
+      // Return data + formatted context for the estimate prompt
+      result = {
+        success: jfResult.success,
+        message: jfResult.message,
+        payload: jfResult.data,
+        context: jfResult.data ? formatJellyfishContext(jfResult.data) : null,
+      };
       break;
     case "status":
       return new Response(JSON.stringify(getIntegrationStatus()), { headers });

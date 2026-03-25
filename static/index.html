@@ -494,16 +494,17 @@
     }
 
     /* ── Integrations Panel ─────────────────────────── */
-    function IntegrationsPanel({ outputs, activeStep }) {
+    function IntegrationsPanel({ outputs, activeStep, onJellyfishData, jellyfishContext }) {
       const [wrikeStatus, setWrikeStatus] = useState(null);
       const [waveStatus, setWaveStatus] = useState(null);
+      const [jellyfishStatus, setJellyfishStatus] = useState(null);
       const [pushing, setPushing] = useState(null);
       const [result, setResult] = useState(null);
 
       useEffect(() => {
         fetch("/api/integrations")
           .then(r => r.json())
-          .then(data => { setWrikeStatus(data.wrike); setWaveStatus(data.wave); })
+          .then(data => { setWrikeStatus(data.wrike); setWaveStatus(data.wave); setJellyfishStatus(data.jellyfish); })
           .catch(() => {});
       }, []);
 
@@ -570,6 +571,47 @@
                 {pushing === "wave" ? "Pushing..." : <><ExternalLink size={12} /> Push to WAVE</>}
               </button>
             </div>
+            {/* Jellyfish */}
+            <div className="border border-anvil-800/30 rounded-xl p-4 flex flex-col gap-3 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-display font-bold text-anvil-200 text-sm tracking-tight">Jellyfish</div>
+                  <div className="text-[11px] text-anvil-400 mt-0.5">Engineering Intelligence</div>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${jellyfishStatus?.configured ? 'bg-green-500' : 'bg-anvil-700'}`} />
+              </div>
+              <p className="text-xs text-anvil-300 leading-relaxed">Pull real developer allocation, delivery velocity, and productivity metrics from Jellyfish to ground cost estimates in actual engineering data.</p>
+              <div className="flex items-center gap-2 mt-auto">
+                <button onClick={async () => {
+                  setPushing("jellyfish");
+                  setResult(null);
+                  try {
+                    const res = await fetch("/api/integrations", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ target: "jellyfish", action: "pull", pipeline: { intake: outputs.intake, current_stage: activeStep } }),
+                    });
+                    const data = await res.json();
+                    setResult({ target: "jellyfish", ...data });
+                    if (data.context && onJellyfishData) {
+                      onJellyfishData(data.context);
+                    }
+                  } catch (e) {
+                    setResult({ target: "jellyfish", success: false, message: e.message });
+                  } finally {
+                    setPushing(null);
+                  }
+                }} disabled={pushing === "jellyfish"}
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-display text-xs font-medium border border-anvil-700 text-anvil-300 hover:border-forge-500/40 hover:text-forge-400 transition-all disabled:opacity-50">
+                  {pushing === "jellyfish" ? "Fetching..." : <><ExternalLink size={12} /> Pull from Jellyfish</>}
+                </button>
+                {jellyfishContext && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-green-500 font-display">
+                    <CheckCircle size={12} /> Data loaded — will inform Estimate
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           {/* Result feedback */}
           {result && (
@@ -581,6 +623,12 @@
               {result.payload && !result.success && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-anvil-300 hover:text-anvil-300 transition-colors">Preview payload that will be sent</summary>
+                  <pre className="mt-2 p-2 bg-anvil-900/50 rounded text-[10px] text-anvil-400 overflow-auto max-h-40">{JSON.stringify(result.payload, null, 2)}</pre>
+                </details>
+              )}
+              {result.payload && result.success && result.target === "jellyfish" && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-green-400 hover:text-green-300 transition-colors">Preview fetched engineering data</summary>
                   <pre className="mt-2 p-2 bg-anvil-900/50 rounded text-[10px] text-anvil-400 overflow-auto max-h-40">{JSON.stringify(result.payload, null, 2)}</pre>
                 </details>
               )}
@@ -700,6 +748,7 @@
       const [staleStages, setStaleStages] = useState(new Set());
       const [editMode, setEditMode] = useState(null); // { stageKey, feedback }
       const [editProcessing, setEditProcessing] = useState(false);
+      const [jellyfishContext, setJellyfishContext] = useState(null); // formatted engineering data from Jellyfish
 
       const currentStage = STAGES[viewStep - 1];
 
@@ -758,11 +807,15 @@
         setError("");
         setIsProcessing(true);
         try {
+          const estimateInput = jellyfishContext
+            ? `${outputs.techspec}\n\n---\n\n${jellyfishContext}\n\nIMPORTANT: The Jellyfish data above contains REAL engineering metrics from this organization. Use this data to calibrate your estimates — reference actual team velocity, allocation patterns, and productivity metrics instead of generic industry benchmarks where applicable. Clearly note where you are using Jellyfish data vs. external benchmarks.`
+            : outputs.techspec;
+
           const stageMap = {
             1: { apiStage: "refine", input: outputs.intake },
             2: { apiStage: "prd", input: outputs.refine },
             3: { apiStage: "techspec", input: outputs.prd },
-            4: { apiStage: "estimate", input: outputs.techspec },
+            4: { apiStage: "estimate", input: estimateInput },
             5: { apiStage: "proto_prompt", input: `## Product Requirements Document\n\n${outputs.prd}\n\n## Technical Specification\n\n${outputs.techspec}\n\n## Cost & Timeline Estimate\n\n${outputs.estimate}` },
           };
 
@@ -895,7 +948,7 @@
       function resetPipeline() {
         setActiveStep(1); setViewStep(1); setError(""); setRunId(null); setClarifyMode(null); setClarifyInput("");
         setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
-        setStaleStages(new Set()); setEditMode(null);
+        setStaleStages(new Set()); setEditMode(null); setJellyfishContext(null);
       }
 
       const canGenerate = viewStep === activeStep && activeStep < TOTAL_STAGES && outputs[currentStage.key].trim().length > 0;
@@ -1223,7 +1276,7 @@
 
               {/* Integrations Panel */}
               {activeStep >= 3 && outputs.prd && (
-                <IntegrationsPanel outputs={outputs} activeStep={activeStep} />
+                <IntegrationsPanel outputs={outputs} activeStep={activeStep} onJellyfishData={setJellyfishContext} jellyfishContext={jellyfishContext} />
               )}
             </main>
           </div>
