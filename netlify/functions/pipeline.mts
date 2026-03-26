@@ -33,9 +33,10 @@ export default async (req: Request, context: Context) => {
         const data = await supabaseFetch(`/pipeline_runs?id=eq.${id}&select=*`);
         return new Response(JSON.stringify(data[0] || null), { headers });
       }
-      // List recent runs
+      // List recent runs (filter by archived status)
+      const showArchived = url.searchParams.get("show_archived") === "true";
       const data = await supabaseFetch(
-        `/pipeline_runs?select=id,created_at,intake,current_stage,status&order=created_at.desc&limit=20`
+        `/pipeline_runs?select=id,created_at,intake,current_stage,status,archived&archived=eq.${showArchived}&order=created_at.desc&limit=20`
       );
       return new Response(JSON.stringify(data), { headers });
     }
@@ -57,7 +58,7 @@ export default async (req: Request, context: Context) => {
         return new Response(JSON.stringify({ error: "id required" }), { status: 400, headers });
       }
       const body = await req.json();
-      const allowed = ["intake", "refined", "prd", "tech_spec", "estimate", "proto_prompt", "build_status", "current_stage", "status"];
+      const allowed = ["intake", "refined", "prd", "tech_spec", "estimate", "proto_prompt", "build_status", "current_stage", "status", "archived"];
       const updates: Record<string, any> = { updated_at: new Date().toISOString() };
       for (const key of allowed) {
         if (body[key] !== undefined) updates[key] = body[key];

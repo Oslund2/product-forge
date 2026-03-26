@@ -159,6 +159,8 @@
     const Pencil = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>;
     const Download = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>;
     const Clipboard = (p) => <Icon {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></Icon>;
+    const ArchiveIcon = (p) => <Icon {...p}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></Icon>;
+    const Undo = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></Icon>;
 
     /* ── Forge Logo ──────────────────────────────────── */
     function ForgeLogo() {
@@ -337,41 +339,81 @@
     function SavedRunsPanel({ onLoad, onClose }) {
       const [runs, setRuns] = useState([]);
       const [loading, setLoading] = useState(true);
+      const [showArchived, setShowArchived] = useState(false);
+      const [archiving, setArchiving] = useState(null);
 
-      useEffect(() => {
-        fetch("/api/pipeline")
+      function fetchRuns(archived) {
+        setLoading(true);
+        fetch(`/api/pipeline${archived ? '?show_archived=true' : ''}`)
           .then(r => r.json())
           .then(data => { setRuns(data || []); setLoading(false); })
           .catch(() => setLoading(false));
-      }, []);
+      }
+
+      useEffect(() => { fetchRuns(showArchived); }, [showArchived]);
+
+      async function toggleArchive(e, runId, archive) {
+        e.stopPropagation();
+        setArchiving(runId);
+        try {
+          await fetch(`/api/pipeline?id=${runId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ archived: archive }),
+          });
+          setRuns(prev => prev.filter(r => r.id !== runId));
+        } catch (err) { console.error("Archive error:", err); }
+        finally { setArchiving(null); }
+      }
 
       return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50" onClick={onClose}>
           <div className="glass rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[85vh] sm:max-h-[70vh] overflow-hidden fade-up" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-anvil-800/50 flex items-center justify-between">
-              <h3 className="font-display font-semibold text-forge-400 text-sm tracking-tight">Saved Pipeline Runs</h3>
-              <button onClick={onClose} className="text-anvil-300 hover:text-anvil-300 text-lg transition-colors">&times;</button>
+              <h3 className="font-display font-semibold text-forge-400 text-sm tracking-tight">
+                {showArchived ? "Archived Runs" : "Saved Pipeline Runs"}
+              </h3>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowArchived(!showArchived)}
+                  className="text-xs font-display text-anvil-400 hover:text-forge-400 transition-colors flex items-center gap-1.5">
+                  {showArchived ? <><Undo size={12} /> Active</> : <><ArchiveIcon size={12} /> Archived</>}
+                </button>
+                <button onClick={onClose} className="text-anvil-300 hover:text-anvil-100 text-lg transition-colors">&times;</button>
+              </div>
             </div>
             <div className="p-4 overflow-auto max-h-[55vh]">
               {loading ? (
                 <p className="text-sm text-anvil-300 text-center py-8 font-display">Loading...</p>
               ) : runs.length === 0 ? (
-                <p className="text-sm text-anvil-300 text-center py-8">No saved runs yet.</p>
+                <p className="text-sm text-anvil-300 text-center py-8">
+                  {showArchived ? "No archived runs." : "No saved runs yet."}
+                </p>
               ) : (
                 <div className="space-y-2">
                   {runs.map(run => (
-                    <button key={run.id} onClick={() => onLoad(run.id)}
-                      className="w-full text-left p-3 rounded-lg border border-anvil-800/50 hover:border-forge-500/30 hover:bg-forge-500/5 transition-all group">
-                      <p className="text-sm font-medium text-anvil-200 truncate group-hover:text-forge-300 transition-colors">{run.intake?.slice(0, 80) || "Untitled"}</p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="text-xs text-anvil-400 font-display">{new Date(run.created_at).toLocaleDateString()}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded font-display font-medium ${
-                          run.status === "completed" ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-forge-500/10 text-forge-400 border border-forge-500/20"
-                        }`}>
-                          {run.current_stage}/{TOTAL_STAGES}
-                        </span>
-                      </div>
-                    </button>
+                    <div key={run.id}
+                      className="flex items-center gap-2 p-3 rounded-lg border border-anvil-800/50 hover:border-forge-500/30 hover:bg-forge-500/5 transition-all group">
+                      <button onClick={() => onLoad(run.id)} className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-medium text-anvil-200 truncate group-hover:text-forge-300 transition-colors">{run.intake?.slice(0, 80) || "Untitled"}</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className="text-xs text-anvil-400 font-display">{new Date(run.created_at).toLocaleDateString()}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-display font-medium ${
+                            run.status === "completed" ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-forge-500/10 text-forge-400 border border-forge-500/20"
+                          }`}>
+                            {run.current_stage}/{TOTAL_STAGES}
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => toggleArchive(e, run.id, !showArchived)}
+                        disabled={archiving === run.id}
+                        title={showArchived ? "Unarchive" : "Archive"}
+                        className="flex-shrink-0 p-2 rounded-lg text-anvil-500 hover:text-amber-400 hover:bg-amber-500/10 transition-all disabled:opacity-50">
+                        {archiving === run.id ? (
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        ) : showArchived ? <Undo size={16} /> : <ArchiveIcon size={16} />}
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -750,6 +792,8 @@
       const [editProcessing, setEditProcessing] = useState(false);
       const [manualEdit, setManualEdit] = useState(null); // { stageKey, text }
       const [jellyfishContext, setJellyfishContext] = useState(null); // formatted engineering data from Jellyfish
+      const [autoPilot, setAutoPilot] = useState(false);
+      const autoPilotRef = useRef(false);
 
       const currentStage = STAGES[viewStep - 1];
 
@@ -1005,7 +1049,122 @@
         setManualEdit(null);
       }
 
+      function cancelAutoPilot() {
+        autoPilotRef.current = false;
+      }
+
+      async function runAutoPilot() {
+        setError("");
+        setAutoPilot(true);
+        autoPilotRef.current = true;
+        setIsProcessing(true);
+
+        // Local copies to avoid stale closures
+        let localOutputs = { ...outputs };
+        let localActiveStep = activeStep; // should be 1
+        let localRunId = runId;
+
+        try {
+          while (localActiveStep < TOTAL_STAGES && autoPilotRef.current) {
+            setViewStep(localActiveStep);
+
+            // Build stage input (mirrors generateNextStep logic)
+            const localEstimateInput = jellyfishContext
+              ? `${localOutputs.techspec}\n\n---\n\n${jellyfishContext}\n\nIMPORTANT: The Jellyfish data above contains REAL engineering metrics from this organization. Use this data to calibrate your estimates.`
+              : localOutputs.techspec;
+
+            const stageMap = {
+              1: { apiStage: "refine", input: localOutputs.intake },
+              2: { apiStage: "prd", input: localOutputs.refine },
+              3: { apiStage: "techspec", input: localOutputs.prd },
+              4: { apiStage: "estimate", input: localEstimateInput },
+              5: { apiStage: "proto_prompt", input: `## Product Requirements Document\n\n${localOutputs.prd}\n\n## Technical Specification\n\n${localOutputs.techspec}\n\n## Cost & Timeline Estimate\n\n${localOutputs.estimate}` },
+            };
+
+            // Build stage (step 6) — auto-advance, no API call
+            if (localActiveStep === 6) {
+              localOutputs.build = "ready";
+              setOutputs(prev => ({ ...prev, build: "ready" }));
+              localActiveStep = 7;
+              setActiveStep(7);
+              setViewStep(7);
+              if (localRunId) {
+                await fetch(`/api/pipeline?id=${localRunId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ build_status: "ready", current_stage: 7, status: "completed" }),
+                });
+              }
+              break;
+            }
+
+            const config = stageMap[localActiveStep];
+            if (!config) break;
+
+            // Call API for this stage
+            let result = await callAPI(config.apiStage, config.input);
+
+            // Cancel check after API call
+            if (!autoPilotRef.current) break;
+
+            const nextKey = STAGES[localActiveStep].key;
+
+            // Check for clarifying questions and auto-answer
+            const questions = detectClarifyingQuestions(result);
+            if (questions) {
+              const autoPrompt = `Here is the original input:\n\n${config.input}\n\nYou asked these clarifying questions:\n${questions}\n\nPlease answer these questions yourself using your best judgment based on the domain context, industry best practices, and reasonable assumptions. Then regenerate your full output incorporating those answers. Clearly mark each assumption you made.`;
+              result = await callAPI(config.apiStage, autoPrompt);
+              if (!autoPilotRef.current) break;
+            }
+
+            // Update local state and React state
+            localOutputs[nextKey] = result;
+            setOutputs(prev => ({ ...prev, [nextKey]: result }));
+
+            const newStep = localActiveStep + 1;
+            localActiveStep = newStep;
+            setActiveStep(newStep);
+            setViewStep(newStep);
+
+            // Save to DB
+            const dbUpdates = { [DB_KEY_MAP[nextKey]]: result, current_stage: newStep };
+            if (newStep === TOTAL_STAGES) dbUpdates.status = "completed";
+
+            if (localActiveStep === 2 && !localRunId) {
+              // First stage just completed — create the run
+              const res = await fetch("/api/pipeline", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ intake: localOutputs.intake }),
+              });
+              const data = await res.json();
+              localRunId = data.id;
+              setRunId(data.id);
+              await fetch(`/api/pipeline?id=${data.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dbUpdates),
+              });
+            } else if (localRunId) {
+              await fetch(`/api/pipeline?id=${localRunId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dbUpdates),
+              });
+            }
+          }
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setIsProcessing(false);
+          setAutoPilot(false);
+          autoPilotRef.current = false;
+        }
+      }
+
       function resetPipeline() {
+        autoPilotRef.current = false;
+        setAutoPilot(false);
         setActiveStep(1); setViewStep(1); setError(""); setRunId(null); setClarifyMode(null); setClarifyInput("");
         setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
         setStaleStages(new Set()); setEditMode(null); setManualEdit(null); setJellyfishContext(null);
@@ -1234,16 +1393,16 @@
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-3 py-2 px-1 border-t border-anvil-800/20 mt-4 flex-wrap">
-                              <button onClick={() => setManualEdit({ stageKey: currentStage.key, text: outputs[currentStage.key] })}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all">
+                            <div className={`flex items-center gap-3 py-2 px-1 border-t border-anvil-800/20 mt-4 flex-wrap ${autoPilot ? 'opacity-40 pointer-events-none' : ''}`}>
+                              <button onClick={() => setManualEdit({ stageKey: currentStage.key, text: outputs[currentStage.key] })} disabled={autoPilot}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
                                 <FileText size={13} /> Edit Text
                               </button>
-                              <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all">
+                              <button onClick={() => setEditMode({ stageKey: currentStage.key, feedback: "" })} disabled={autoPilot}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
                                 <Pencil size={13} /> Revise with AI
                               </button>
-                              <button onClick={() => regenerateStage(currentStage.key, null)} disabled={editProcessing}
+                              <button onClick={() => regenerateStage(currentStage.key, null)} disabled={editProcessing || autoPilot}
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
                                 <RotateCcw size={13} /> {editProcessing ? "Regenerating..." : "Regenerate"}
                               </button>
@@ -1310,7 +1469,15 @@
                 {/* Action bar */}
                 <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-anvil-800/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 no-print">
                   <div className="font-display text-[11px] text-anvil-400">
-                    {activeStep >= TOTAL_STAGES && outputs.build ? (
+                    {autoPilot ? (
+                      <span className="flex items-center gap-2 text-forge-400">
+                        <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Auto-Pilot: {STAGES[activeStep - 1]?.label || "Complete"}
+                      </span>
+                    ) : activeStep >= TOTAL_STAGES && outputs.build ? (
                       <span className="flex items-center gap-2 text-green-500">
                         <CheckCircle size={14} /> Pipeline complete
                       </span>
@@ -1322,32 +1489,49 @@
                       </span>
                     )}
                   </div>
-                  {viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && (
-                    <button
-                      disabled={!canGenerate || isProcessing}
-                      onClick={generateNextStep}
-                      className={`flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300
-                        ${canGenerate && !isProcessing
-                          ? "bg-gradient-to-r from-forge-600 to-forge-500 text-anvil-950 hover:from-forge-500 hover:to-forge-400 forge-glow cursor-pointer"
-                          : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
-                        }`}
-                    >
-                      {isProcessing ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span className="forge-pulse">Forging...</span>
-                        </>
-                      ) : (
-                        <>
-                          Generate {STAGES[activeStep]?.label}
-                          <ArrowRight size={16} />
-                        </>
-                      )}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* Auto-Pilot cancel button */}
+                    {autoPilot && (
+                      <button onClick={cancelAutoPilot}
+                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-display text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
+                        <X size={14} /> Cancel Auto-Pilot
+                      </button>
+                    )}
+                    {/* Auto-Pilot start button — only at intake stage */}
+                    {!autoPilot && viewStep === activeStep && activeStep === 1 && outputs.intake.trim().length > 0 && !isProcessing && (
+                      <button onClick={runAutoPilot}
+                        className="flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300 border border-forge-500/30 text-forge-400 hover:bg-forge-500/10 hover:border-forge-500/50">
+                        <Zap size={16} /> Auto-Pilot
+                      </button>
+                    )}
+                    {/* Standard generate button */}
+                    {!autoPilot && viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && (
+                      <button
+                        disabled={!canGenerate || isProcessing}
+                        onClick={generateNextStep}
+                        className={`flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300
+                          ${canGenerate && !isProcessing
+                            ? "bg-gradient-to-r from-forge-600 to-forge-500 text-anvil-950 hover:from-forge-500 hover:to-forge-400 forge-glow cursor-pointer"
+                            : "bg-anvil-800/50 text-anvil-400 cursor-not-allowed"
+                          }`}
+                      >
+                        {isProcessing ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            <span className="forge-pulse">Forging...</span>
+                          </>
+                        ) : (
+                          <>
+                            Generate {STAGES[activeStep]?.label}
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

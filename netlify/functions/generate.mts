@@ -164,32 +164,82 @@ List key documentation links and resources used in this specification.`,
   estimate:
     RESEARCH_DIRECTIVE + ORG_STACK_DIRECTIVE + `You are a seasoned Technical Project Manager with experience estimating complex software projects. Create a realistic, defensible Cost & Time Estimate based on the technical specification.
 
+IMPORTANT: For this Estimate stage, the generic "Traditional Approach vs. AI-Augmented Approach" section from the general directive is REPLACED by the more detailed "Traditional vs. AI-Augmented Cost Comparison" section defined below. Do NOT produce both — only produce the detailed version defined in this prompt.
+
 ALL costs and rates MUST be grounded in real market data. Use actual salary data, actual cloud pricing, and actual vendor costs. Cite your sources for every rate.
+
+You MUST produce TWO COMPLETE estimates side by side throughout this document:
+1. **Traditional (No AI)**: Fully-loaded FTEs, standard human hourly wages, conventional development timelines with no AI tooling.
+2. **AI-Augmented (with Claude Code)**: Reduced headcount, accelerated timelines, and lower costs enabled by AI-powered development tools.
 
 Output a detailed Markdown document with these sections:
 
 ## Project Phases & Timeline
-Present as a table with columns: Phase | Duration | Key Deliverables | Dependencies
+Present as a table with columns: Phase | Traditional Duration | AI-Augmented Duration | Key Deliverables | Dependencies
 Include phases for: Discovery, Design, Core Development, Integration, Testing, Deployment, Post-Launch Support
 Base duration estimates on comparable projects — cite examples or industry benchmarks where possible *(e.g., "Per ISBSG benchmark data" or "Based on comparable SaaS build timelines")*
+For AI-Augmented durations, cite real productivity research *(e.g., Source: GitHub Copilot productivity study, 2023: 55% faster task completion; Source: McKinsey gen-AI developer productivity research, 2023)*
 
-## Resource Requirements
-Present as a table with columns: Role | Count | Duration | Hourly/Annual Rate | Rate Source
-Include all necessary roles. For each rate, cite the source:
+## Resource Requirements — Traditional (No AI)
+Present as a table with columns: Role | Count | Duration | Hourly Rate | Total Cost | Rate Source
+Include all necessary roles with fully-loaded FTE costs. For each rate, cite the source:
 - US rates: *(Source: Robert Half 2024 Salary Guide)*, *(Source: Glassdoor median, 2024)*, *(Source: Levels.fyi)*, or *(Source: Bureau of Labor Statistics)*
 - Contractor rates: *(Source: Toptal/Upwork market rates)* or *(Source: Staffing industry benchmarks)*
+Show the math: count x $/hr x 40hr/wk x weeks = total
+
+## Resource Requirements — AI-Augmented (with Claude Code)
+Present the SAME table format but with reduced headcount and/or shorter durations reflecting AI productivity gains.
+For each role change, explain WHY the reduction is possible (e.g., "Claude Code handles scaffolding and boilerplate, reducing junior engineer need from 3 to 1").
+Cite specific AI tools: Claude Code for code generation and architecture, GitHub Copilot for inline completion, Cursor for AI-assisted editing, CodeRabbit for automated code review.
 
 ## Cost Breakdown
-Provide THREE estimates:
+Provide THREE estimates, EACH showing both Traditional and AI-Augmented:
 - **Optimistic** (best case, minimal scope changes)
 - **Most Likely** (expected, with normal contingency)
 - **Pessimistic** (worst case, significant unknowns)
 
 For each, break down by:
-- **Personnel costs**: role x rate x duration — show the math, cite rate sources
+- **Personnel costs**: role x rate x duration — show the math for BOTH approaches, cite rate sources
 - **Infrastructure/cloud costs**: Use actual pricing from cloud provider calculators *(Source: AWS/GCP/Azure pricing calculator, [region], 2025)*. Specify instance types, storage tiers, and estimated monthly usage.
-- **Third-party licenses and services**: Name real vendors with real pricing tiers *(e.g., "Auth0 B2C Professional at $240/mo for 1K MAU" or "Datadog Pro at $23/host/mo")*
+- **Third-party licenses and services**: Name real vendors with real pricing tiers *(e.g., "Auth0 B2C Professional at $240/mo for 1K MAU" or "Datadog Pro at $23/host/mo")*. For AI-Augmented, include AI tool licensing costs (e.g., "Claude Code Max plan at $200/mo per seat", "GitHub Copilot Business at $19/mo per seat").
 - **Contingency buffer**: percentage and justification based on project risk profile *(industry standard: 15-25% per PMI PMBOK)*
+
+## Traditional vs. AI-Augmented Cost Comparison
+
+This is the MOST IMPORTANT section. Present a MANDATORY side-by-side comparison table:
+
+| Dimension | Traditional (No AI) | AI-Augmented (with Claude Code) | Savings |
+|-----------|--------------------|---------------------------------|---------|
+| Total Team Size | X FTEs | Y FTEs | -Z FTEs (XX%) |
+| Senior Engineers | count x $/hr x weeks | count x $/hr x weeks | $X saved |
+| Mid-Level Engineers | count x $/hr x weeks | count x $/hr x weeks | $X saved |
+| Junior Engineers | count x $/hr x weeks | count x $/hr x weeks | $X saved |
+| QA/Test Engineers | count x $/hr x weeks | count x $/hr x weeks | $X saved |
+| DevOps/Infra | count x $/hr x weeks | count x $/hr x weeks | $X saved |
+| Project Duration | X weeks | Y weeks | -Z weeks (XX%) |
+| Total Personnel Cost | $X | $Y | $Z saved (XX%) |
+| AI Tooling Cost | $0 | $X | +$X |
+| Infrastructure Cost (monthly) | $X | $Y | $Z |
+| **Total Project Cost** | **$X** | **$Y** | **$Z saved (XX%)** |
+| Time to MVP | X weeks | Y weeks | -Z weeks (XX%) |
+
+TABLE RULES:
+- Every cell MUST contain a specific dollar amount, headcount, or duration — no vague language
+- Show the math for personnel: "N engineers x $X/hr x 40hr/wk x Y weeks = $Z"
+- Traditional rates: cite Robert Half 2024, Glassdoor, or BLS
+- AI-Augmented: apply documented productivity multipliers (cite GitHub Copilot study 2023: 55% faster; McKinsey 2023 gen-AI research: 20-45% acceleration; Anthropic Claude Code case studies)
+- Savings column: show BOTH absolute dollar amount AND percentage
+- Include AI tool licensing costs in the AI-Augmented column (these are real costs that offset some savings)
+
+After the table, include:
+### What AI Automates or Accelerates
+Explain which specific tasks get automated or accelerated by AI tools: code scaffolding, boilerplate generation, test writing, code review, documentation, bug detection, refactoring.
+
+### Role Impact Analysis
+Explain which roles see reduced headcount and why. Be specific about which tasks within each role are AI-assisted vs. still requiring human judgment.
+
+### Human Oversight Requirements
+Explain what human oversight is still required and why — architecture decisions, security review, UX decisions, stakeholder communication, production operations.
 
 ## Risk Assessment
 For each major risk:
@@ -304,7 +354,7 @@ const TOKEN_MAP: Record<string, number> = {
   refine: 2048,
   prd: 2048,
   techspec: 2048,
-  estimate: 2048,
+  estimate: 4096,
   proto_prompt: 4096,
 };
 
