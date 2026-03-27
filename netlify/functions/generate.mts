@@ -379,13 +379,15 @@ const MODEL_MAP: Record<string, string> = {
   anthropic:    "claude-haiku-4-5-20251001",
 };
 
-/* ── Default provider per stage (Balanced strategy) ── */
+/* ── Default provider per stage ──────────────────────── */
+// Pro times out on Netlify Functions (10s limit) so default to Flash for reliability.
+// Users can manually select Pro per-stage if willing to retry on timeouts.
 const DEFAULT_STAGE_PROVIDERS: Record<string, string> = {
   refine:       "gemini_flash",
   prd:          "gemini_flash",
-  techspec:     "gemini_pro",
-  estimate:     "gemini_pro",
-  proto_prompt: "gemini_pro",
+  techspec:     "gemini_flash",
+  estimate:     "gemini_flash",
+  proto_prompt: "gemini_flash",
 };
 
 /* ── Max output tokens — tier-aware ─────────────────── */

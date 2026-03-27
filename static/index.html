@@ -321,13 +321,12 @@
 
     /* ── AutoPilot Tier Strategies ─────────────────────── */
     const TIER_STRATEGIES = {
-      economy:  { label: "Economy",  desc: "All Flash — fastest & cheapest",               icon: "$",   refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_flash", estimate: "gemini_flash", proto_prompt: "gemini_flash" },
-      balanced: { label: "Balanced", desc: "Flash early, Pro for complex stages",           icon: "$$",  refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_pro",   estimate: "gemini_pro",   proto_prompt: "gemini_pro"   },
-      quality:  { label: "Quality",  desc: "Pro for all stages — highest output quality",   icon: "$$$", refine: "gemini_pro",   prd: "gemini_pro",   techspec: "gemini_pro",   estimate: "gemini_pro",   proto_prompt: "gemini_pro"   },
+      flash:   { label: "Flash",   desc: "Fast & reliable — recommended",                  icon: "$",   refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_flash", estimate: "gemini_flash", proto_prompt: "gemini_flash" },
+      pro:     { label: "Pro",     desc: "Highest quality — may timeout on some stages",    icon: "$$$", refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_pro",   estimate: "gemini_pro",   proto_prompt: "gemini_pro"   },
     };
 
     const RECOMMENDED_PROVIDERS = {
-      refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_pro", estimate: "gemini_pro", proto_prompt: "gemini_pro",
+      refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_flash", estimate: "gemini_flash", proto_prompt: "gemini_flash",
     };
 
     /* ── Token pricing ─────────────────────────────────── */
