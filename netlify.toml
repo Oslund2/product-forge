@@ -4,10 +4,6 @@
 [functions]
   directory = "netlify/functions"
 
-[[edge_functions]]
-  path = "/api/generate"
-  function = "generate"
-
 [[headers]]
   for = "/api/generate"
   [headers.values]

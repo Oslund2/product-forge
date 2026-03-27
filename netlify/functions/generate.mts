@@ -1,4 +1,4 @@
-import type { Config, Context } from "@netlify/edge-functions";
+import type { Context } from "@netlify/functions";
 
 // Universal directive prepended to all stage prompts
 const RESEARCH_DIRECTIVE = `
@@ -518,7 +518,6 @@ async function streamGemini(
 
       try {
         const parsed = JSON.parse(data);
-        // Extract text from candidates
         const parts = parsed.candidates?.[0]?.content?.parts;
         if (parts) {
           for (const part of parts) {
@@ -528,7 +527,6 @@ async function streamGemini(
             }
           }
         }
-        // Extract token usage from usageMetadata
         const usage = parsed.usageMetadata;
         if (usage) {
           totalInputTokens = usage.promptTokenCount || totalInputTokens;
@@ -538,7 +536,6 @@ async function streamGemini(
     }
   }
 
-  // Send usage in the same format the frontend expects
   if (totalInputTokens > 0) {
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage_start: { input_tokens: totalInputTokens } })}\n\n`));
   }
@@ -583,10 +580,9 @@ export default async (req: Request, _context: Context) => {
     );
   }
 
-  // Resolve API key based on provider
   const apiKey = provider === "gemini"
-    ? Deno.env.get("GEMINI_API_KEY")
-    : Deno.env.get("ANTHROPIC_API_KEY");
+    ? process.env.GEMINI_API_KEY
+    : process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     return new Response(
@@ -631,6 +627,6 @@ export default async (req: Request, _context: Context) => {
   }
 };
 
-export const config: Config = {
+export const config = {
   path: "/api/generate",
 };
