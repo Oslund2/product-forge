@@ -4,8 +4,9 @@
 [functions]
   directory = "netlify/functions"
 
-[functions."generate"]
-  external_node_modules = ["*"]
+[[edge_functions]]
+  path = "/api/generate"
+  function = "generate"
 
 [[headers]]
   for = "/api/generate"
