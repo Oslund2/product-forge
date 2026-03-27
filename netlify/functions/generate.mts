@@ -380,11 +380,11 @@ const MODEL_MAP: Record<string, string> = {
 };
 
 const TOKEN_MAP: Record<string, number> = {
-  refine: 2048,
-  prd: 2048,
-  techspec: 2048,
-  estimate: 4096,
-  proto_prompt: 4096,
+  refine: 8192,
+  prd: 8192,
+  techspec: 8192,
+  estimate: 8192,
+  proto_prompt: 8192,
 };
 
 export default async (req: Request, context: Context) => {
@@ -431,8 +431,8 @@ export default async (req: Request, context: Context) => {
   const model = MODEL_MAP[stage] || "claude-haiku-4-5-20251001";
   const maxTokens = TOKEN_MAP[stage] || 2048;
 
-  // Use streaming for Sonnet / large token stages to avoid timeout
-  const useStreaming = maxTokens > 2048 || model.includes("sonnet");
+  // Use streaming for all stages to avoid Netlify function timeouts
+  const useStreaming = true;
 
   try {
     if (useStreaming) {
@@ -490,6 +490,14 @@ export default async (req: Request, context: Context) => {
                     fullText += parsed.delta.text;
                     // Send progress chunk to keep connection alive
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: parsed.delta.text })}\n\n`));
+                  }
+                  // Forward token usage from message_start (input tokens)
+                  if (parsed.type === "message_start" && parsed.message?.usage) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage_start: parsed.message.usage })}\n\n`));
+                  }
+                  // Forward token usage from message_delta (output tokens)
+                  if (parsed.type === "message_delta" && parsed.usage) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage_delta: parsed.usage })}\n\n`));
                   }
                 } catch {}
               }

@@ -308,7 +308,82 @@
 
     const TOTAL_STAGES = STAGES.length;
 
+    /* ── Token pricing (Haiku 4.5) ────────────────────── */
+    const HAIKU_PRICING = { inputPerMTok: 0.80, outputPerMTok: 4.00 };
+    function calcCost(inputTokens, outputTokens) {
+      return (inputTokens / 1_000_000) * HAIKU_PRICING.inputPerMTok
+           + (outputTokens / 1_000_000) * HAIKU_PRICING.outputPerMTok;
+    }
+
     const DB_KEY_MAP = { intake: "intake", refine: "refined", prd: "prd", techspec: "tech_spec", estimate: "estimate", proto_prompt: "proto_prompt", build: "build_status" };
+
+    /* ── Token Cost Display (header) ─────────────────── */
+    function TokenCostDisplay({ tokenUsage }) {
+      const [expanded, setExpanded] = React.useState(false);
+      const dropdownRef = React.useRef(null);
+      const totalCost = calcCost(tokenUsage.totalInputTokens, tokenUsage.totalOutputTokens);
+
+      // Close dropdown on outside click
+      React.useEffect(() => {
+        if (!expanded) return;
+        const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setExpanded(false); };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+      }, [expanded]);
+
+      if (tokenUsage.totalInputTokens === 0 && tokenUsage.totalOutputTokens === 0) return null;
+
+      return (
+        <div className="relative" ref={dropdownRef}>
+          <button onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-anvil-600 hover:text-anvil-200 transition-all"
+            title="API token usage & cost">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            {"$" + totalCost.toFixed(4)}
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className="ml-0.5 opacity-50">
+              <polyline points={expanded ? "18 15 12 9 6 15" : "6 9 12 15 18 9"}/>
+            </svg>
+          </button>
+          {expanded && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-anvil-900 border border-anvil-700 rounded-xl shadow-xl z-50 p-3 fade-up">
+              <div className="text-xs font-display text-anvil-300 mb-2 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                Token Usage &amp; Cost
+              </div>
+              <div className="space-y-1 text-[11px] font-display">
+                <div className="flex justify-between text-anvil-200 font-medium border-b border-anvil-800 pb-1.5 mb-1">
+                  <span>Total</span>
+                  <span>{tokenUsage.totalInputTokens.toLocaleString()} in / {tokenUsage.totalOutputTokens.toLocaleString()} out</span>
+                  <span className="text-forge-400">{"$" + totalCost.toFixed(4)}</span>
+                </div>
+                {STAGES.filter(s => tokenUsage.stages[s.key]).map(s => {
+                  const d = tokenUsage.stages[s.key];
+                  const cost = calcCost(d.inputTokens, d.outputTokens);
+                  return (
+                    <div key={s.key} className="flex justify-between text-anvil-400">
+                      <span>{s.label}{d.calls > 1 ? ` (\u00D7${d.calls})` : ""}</span>
+                      <span>{d.inputTokens.toLocaleString()} / {d.outputTokens.toLocaleString()}</span>
+                      <span>{"$" + cost.toFixed(4)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 pt-1.5 border-t border-anvil-800 text-[10px] text-anvil-500">
+                Haiku 4.5: $0.80/MTok input, $4.00/MTok output
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     /* ── Stage Node (sidebar) ────────────────────────── */
     function StageNode({ stage, activeStep, outputs, onClick, isLast, staleStages }) {
@@ -818,6 +893,23 @@
       const [jellyfishContext, setJellyfishContext] = useState(null); // formatted engineering data from Jellyfish
       const [autoPilot, setAutoPilot] = useState(false);
       const autoPilotRef = useRef(false);
+      const [tokenUsage, setTokenUsage] = useState({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
+
+      function addTokenUsage(stageKey, usage) {
+        if (!usage || (!usage.input_tokens && !usage.output_tokens)) return;
+        setTokenUsage(prev => {
+          const sd = prev.stages[stageKey] || { inputTokens: 0, outputTokens: 0, calls: 0 };
+          return {
+            totalInputTokens: prev.totalInputTokens + (usage.input_tokens || 0),
+            totalOutputTokens: prev.totalOutputTokens + (usage.output_tokens || 0),
+            stages: { ...prev.stages, [stageKey]: {
+              inputTokens: sd.inputTokens + (usage.input_tokens || 0),
+              outputTokens: sd.outputTokens + (usage.output_tokens || 0),
+              calls: sd.calls + 1,
+            }}
+          };
+        });
+      }
 
       const currentStage = STAGES[viewStep - 1];
 
@@ -844,12 +936,14 @@
 
         const contentType = res.headers.get("content-type") || "";
 
-        // Handle SSE streaming response (used for Sonnet / large token stages)
+        // Handle SSE streaming response
         if (contentType.includes("text/event-stream")) {
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let fullText = "";
           let buffer = "";
+          let usageInput = 0;
+          let usageOutput = 0;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -865,17 +959,20 @@
                 if (parsed.error) throw new Error(parsed.error);
                 if (parsed.delta) fullText += parsed.delta;
                 if (parsed.output) fullText = parsed.output;
+                if (parsed.usage_start) usageInput = parsed.usage_start.input_tokens || 0;
+                if (parsed.usage_delta) usageOutput = parsed.usage_delta.output_tokens || 0;
               } catch (e) {
                 if (e.message && !e.message.includes("JSON")) throw e;
               }
             }
           }
           if (!fullText) throw new Error("Empty response from API");
-          return fullText;
+          return { text: fullText, usage: { input_tokens: usageInput, output_tokens: usageOutput } };
         }
 
-        // Standard JSON response (Haiku stages)
-        return (await res.json()).output;
+        // Standard JSON response fallback
+        const json = await res.json();
+        return { text: json.output, usage: json.usage || { input_tokens: 0, output_tokens: 0 } };
       }
 
       async function saveToDB(updates) {
@@ -900,6 +997,7 @@
           setRunId(run.id);
           setOutputs({ intake: run.intake || "", refine: run.refined || "", prd: run.prd || "", techspec: run.tech_spec || "", estimate: run.estimate || "", proto_prompt: run.proto_prompt || "", build: run.build_status || "" });
           setStaleStages(new Set());
+          setTokenUsage({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
           setActiveStep(run.current_stage || 1);
           setViewStep(run.current_stage || 1);
           setShowRuns(false);
@@ -933,8 +1031,9 @@
 
           const config = stageMap[activeStep];
           if (!config) return;
-          const result = await callAPI(config.apiStage, config.input);
+          const { text: result, usage } = await callAPI(config.apiStage, config.input);
           const nextKey = STAGES[activeStep].key;
+          addTokenUsage(nextKey, usage);
           setOutputs(prev => ({ ...prev, [nextKey]: result }));
 
           // Check for clarifying questions
@@ -963,7 +1062,8 @@
         setError("");
         try {
           const followUp = `Here is the original input:\n\n${clarifyMode.originalInput}\n\nYou asked clarifying questions. Here are the answers:\n\n${userAnswers}\n\nPlease regenerate your full output incorporating these answers. Do not ask the same questions again.`;
-          const result = await callAPI(clarifyMode.apiStage, followUp);
+          const { text: result, usage } = await callAPI(clarifyMode.apiStage, followUp);
+          addTokenUsage(clarifyMode.stageKey, usage);
           setOutputs(prev => ({ ...prev, [clarifyMode.stageKey]: result }));
           setClarifyMode(null);
           setClarifyInput("");
@@ -984,7 +1084,8 @@
         setError("");
         try {
           const autoPrompt = `Here is the original input:\n\n${clarifyMode.originalInput}\n\nYou asked these clarifying questions:\n${clarifyMode.questions}\n\nPlease answer these questions yourself using your best judgment based on the domain context, industry best practices, and reasonable assumptions. Then regenerate your full output incorporating those answers. Clearly mark each assumption you made.`;
-          const result = await callAPI(clarifyMode.apiStage, autoPrompt);
+          const { text: result, usage } = await callAPI(clarifyMode.apiStage, autoPrompt);
+          addTokenUsage(clarifyMode.stageKey, usage);
           setOutputs(prev => ({ ...prev, [clarifyMode.stageKey]: result }));
           setClarifyMode(null);
           setClarifyInput("");
@@ -1015,7 +1116,8 @@
             ? `Here is the original input:\n\n${prevInput}\n\nHere is the previously generated output:\n\n${outputs[stageKey]}\n\nUser feedback for revision:\n\n${feedback}\n\nPlease regenerate the full output incorporating this feedback. Maintain the same format and depth.`
             : prevInput;
 
-          const result = await callAPI(apiStage, composedInput);
+          const { text: result, usage } = await callAPI(apiStage, composedInput);
+          addTokenUsage(stageKey, usage);
           setOutputs(prev => ({ ...prev, [stageKey]: result }));
 
           // Mark all downstream stages as stale
@@ -1126,18 +1228,21 @@
             if (!config) break;
 
             // Call API for this stage
-            let result = await callAPI(config.apiStage, config.input);
+            let { text: result, usage } = await callAPI(config.apiStage, config.input);
 
             // Cancel check after API call
             if (!autoPilotRef.current) break;
 
             const nextKey = STAGES[localActiveStep].key;
+            addTokenUsage(nextKey, usage);
 
             // Check for clarifying questions and auto-answer
             const questions = detectClarifyingQuestions(result);
             if (questions) {
               const autoPrompt = `Here is the original input:\n\n${config.input}\n\nYou asked these clarifying questions:\n${questions}\n\nPlease answer these questions yourself using your best judgment based on the domain context, industry best practices, and reasonable assumptions. Then regenerate your full output incorporating those answers. Clearly mark each assumption you made.`;
-              result = await callAPI(config.apiStage, autoPrompt);
+              const retry = await callAPI(config.apiStage, autoPrompt);
+              result = retry.text;
+              addTokenUsage(nextKey, retry.usage);
               if (!autoPilotRef.current) break;
             }
 
@@ -1192,6 +1297,7 @@
         setActiveStep(1); setViewStep(1); setError(""); setRunId(null); setClarifyMode(null); setClarifyInput("");
         setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
         setStaleStages(new Set()); setEditMode(null); setManualEdit(null); setJellyfishContext(null);
+        setTokenUsage({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
       }
 
       const canGenerate = viewStep === activeStep && activeStep < TOTAL_STAGES && outputs[currentStage.key].trim().length > 0;
@@ -1216,6 +1322,7 @@
               </div>
               {/* Desktop actions */}
               <div className="hidden sm:flex items-center gap-2">
+                <TokenCostDisplay tokenUsage={tokenUsage} />
                 <PrintMenu outputs={outputs} />
                 <button onClick={() => setShowRuns(true)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-anvil-600 hover:text-anvil-200 transition-all">
@@ -1234,6 +1341,7 @@
             {/* Mobile dropdown */}
             {mobileMenu && (
               <div className="sm:hidden border-t border-anvil-800/50 px-4 py-3 flex flex-wrap gap-2 fade-up">
+                <TokenCostDisplay tokenUsage={tokenUsage} />
                 <PrintMenu outputs={outputs} />
                 <button onClick={() => { setShowRuns(true); setMobileMenu(false); }}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg">
