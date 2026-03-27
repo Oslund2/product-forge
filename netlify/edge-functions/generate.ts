@@ -380,11 +380,11 @@ const MODEL_MAP: Record<string, string> = {
 };
 
 const TOKEN_MAP: Record<string, number> = {
-  refine: 8192,
-  prd: 8192,
-  techspec: 8192,
-  estimate: 8192,
-  proto_prompt: 8192,
+  refine: 4096,
+  prd: 4096,
+  techspec: 4096,
+  estimate: 4096,
+  proto_prompt: 4096,
 };
 
 export default async (req: Request, _context: Context) => {
