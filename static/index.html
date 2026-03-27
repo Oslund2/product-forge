@@ -1861,11 +1861,8 @@
                   <div className="font-display text-[11px] text-anvil-400">
                     {autoPilot ? (
                       <span className="flex items-center gap-2 text-forge-400">
-                        <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Auto-Pilot: {STAGES[activeStep - 1]?.label || "Complete"}
+                        <span className="forge-flame" style={{ transform: 'scale(0.6)', transformOrigin: 'bottom center' }} />
+                        <span className="forge-pulse">Auto-Pilot: Forging {STAGES[activeStep - 1]?.label || "Complete"}</span>
                       </span>
                     ) : activeStep >= TOTAL_STAGES && outputs.build ? (
                       <span className="flex items-center gap-2 text-green-500">
