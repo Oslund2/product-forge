@@ -170,7 +170,18 @@ ALL costs and rates MUST be grounded in real market data. Use actual salary data
 
 You MUST produce TWO COMPLETE estimates side by side throughout this document:
 1. **Traditional (No AI)**: Fully-loaded FTEs, standard human hourly wages, conventional development timelines with no AI tooling.
-2. **AI-Augmented (with Claude Code)**: Reduced headcount, accelerated timelines, and lower costs enabled by AI-powered development tools.
+2. **AI-Augmented (with Claude Code)**: Modestly reduced headcount, accelerated timelines, and lower costs enabled by AI-powered development tools.
+
+CRITICAL — AI SAVINGS CALIBRATION RULES:
+AI productivity gains are REAL but MODEST. Do NOT overstate them. Use ONLY these evidence-based ranges:
+- **Coding speed**: 20-30% faster for routine coding tasks *(Source: GitHub, "Research: Quantifying GitHub Copilot's impact on developer productivity and happiness," 2022 — 55% faster on a SINGLE controlled task, but real-world projects see 20-30% net improvement after context-switching, debugging, and review overhead)*
+- **Test writing**: 25-35% faster *(Source: Microsoft Research, "The Impact of AI on Developer Productivity: Evidence from GitHub Copilot," 2024)*
+- **Code review**: 15-25% faster with AI-assisted review tools *(Source: CodeRabbit, Codacy industry benchmarks, 2024)*
+- **Overall project timeline**: 15-25% reduction maximum for a full project lifecycle *(Source: McKinsey & Company, "The economic potential of generative AI," June 2023 — software engineering sees 20-45% task acceleration, but only 25-50% of engineering time is code-generation; net project impact is 15-25%)*
+- **Headcount reduction**: 0-1 fewer engineers on small teams (2-5 people); 10-20% reduction on larger teams. AI does NOT eliminate roles — it makes existing engineers more productive.
+- **Roles AI does NOT reduce**: Project managers, UX designers, DevOps/SRE, security engineers, architects. These roles require human judgment, stakeholder communication, and system-level thinking that AI does not replace.
+- **AI tool costs are NOT free**: Include real licensing costs (Claude Max ~$100-200/mo per seat, GitHub Copilot Business $19/mo per seat, Cursor Pro $20/mo per seat). These offset personnel savings.
+- When in doubt, use the CONSERVATIVE end of each range. It is better to understate AI savings and be pleasantly surprised than to overpromise.
 
 Output a detailed Markdown document with these sections:
 
@@ -178,7 +189,7 @@ Output a detailed Markdown document with these sections:
 Present as a table with columns: Phase | Traditional Duration | AI-Augmented Duration | Key Deliverables | Dependencies
 Include phases for: Discovery, Design, Core Development, Integration, Testing, Deployment, Post-Launch Support
 Base duration estimates on comparable projects — cite examples or industry benchmarks where possible *(e.g., "Per ISBSG benchmark data" or "Based on comparable SaaS build timelines")*
-For AI-Augmented durations, cite real productivity research *(e.g., Source: GitHub Copilot productivity study, 2023: 55% faster task completion; Source: McKinsey gen-AI developer productivity research, 2023)*
+For AI-Augmented durations, apply a conservative 15-25% reduction per the calibration rules. Cite the specific source for each reduction. Do NOT reduce phases where AI has minimal impact (Discovery, stakeholder reviews, deployment, post-launch support).
 
 ## Resource Requirements — Traditional (No AI)
 Present as a table with columns: Role | Count | Duration | Hourly Rate | Total Cost | Rate Source
@@ -188,9 +199,14 @@ Include all necessary roles with fully-loaded FTE costs. For each rate, cite the
 Show the math: count x $/hr x 40hr/wk x weeks = total
 
 ## Resource Requirements — AI-Augmented (with Claude Code)
-Present the SAME table format but with reduced headcount and/or shorter durations reflecting AI productivity gains.
-For each role change, explain WHY the reduction is possible (e.g., "Claude Code handles scaffolding and boilerplate, reducing junior engineer need from 3 to 1").
-Cite specific AI tools: Claude Code for code generation and architecture, GitHub Copilot for inline completion, Cursor for AI-assisted editing, CodeRabbit for automated code review.
+Present the SAME table format but with conservatively adjusted headcount and/or shorter durations reflecting AI productivity gains per the calibration rules above.
+For EVERY adjustment, you MUST:
+1. State the specific productivity multiplier applied (e.g., "20% coding speed improvement")
+2. Cite the source study inline *(Source: GitHub Copilot productivity study, 2022)*
+3. Explain WHY this role is reducible — which specific tasks within this role does AI accelerate?
+4. Note what this role still does that AI cannot (e.g., "still needed for architecture decisions and code review judgment")
+Keep headcount reductions modest: AI makes engineers faster, it rarely eliminates roles entirely.
+Name specific AI tools where applicable: Claude Code for code generation and architecture, GitHub Copilot for inline completion, Cursor for AI-assisted editing, CodeRabbit for automated code review.
 
 ## Cost Breakdown
 Provide THREE estimates, EACH showing both Traditional and AI-Augmented:
@@ -226,10 +242,11 @@ This is the MOST IMPORTANT section. Present a MANDATORY side-by-side comparison 
 TABLE RULES:
 - Every cell MUST contain a specific dollar amount, headcount, or duration — no vague language
 - Show the math for personnel: "N engineers x $X/hr x 40hr/wk x Y weeks = $Z"
-- Traditional rates: cite Robert Half 2024, Glassdoor, or BLS
-- AI-Augmented: apply documented productivity multipliers (cite GitHub Copilot study 2023: 55% faster; McKinsey 2023 gen-AI research: 20-45% acceleration; Anthropic Claude Code case studies)
+- Traditional rates: cite Robert Half 2024, Glassdoor, or BLS with inline *(Source: ...)* citations
+- AI-Augmented: apply ONLY the conservative productivity multipliers from the calibration rules above (15-25% timeline reduction, 0-20% headcount reduction). Cite the specific study for each multiplier used.
+- Do NOT claim >30% total project cost savings — real-world evidence does not support this for full-lifecycle projects
 - Savings column: show BOTH absolute dollar amount AND percentage
-- Include AI tool licensing costs in the AI-Augmented column (these are real costs that offset some savings)
+- Include AI tool licensing costs in the AI-Augmented column — these are real costs that offset personnel savings and MUST be itemized (tool name, per-seat cost, number of seats, months)
 
 After the table, include:
 ### What AI Automates or Accelerates
