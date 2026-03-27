@@ -491,7 +491,11 @@ async function streamGemini(
     body: JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM_PROMPTS[stage] }] },
       contents: [{ role: "user", parts: [{ text: input_text }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        // Cap thinking budget to avoid long silent pauses that trigger timeouts
+        ...(model.includes("pro") ? { thinkingConfig: { thinkingBudget: 2048 } } : {}),
+      },
     }),
   });
 
@@ -524,10 +528,25 @@ async function streamGemini(
 
       try {
         const parsed = JSON.parse(data);
+
+        // Surface Gemini-side errors from the stream
+        if (parsed.error) {
+          const errMsg = parsed.error.message || JSON.stringify(parsed.error);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `Gemini stream error: ${errMsg}` })}\n\n`));
+          continue;
+        }
+
+        // Check for blocked or failed candidates
+        const finishReason = parsed.candidates?.[0]?.finishReason;
+        if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `Generation stopped: ${finishReason}` })}\n\n`));
+        }
+
         const parts = parsed.candidates?.[0]?.content?.parts;
         if (parts) {
           for (const part of parts) {
-            if (part.text) {
+            // Skip thinking/thought parts, only emit text
+            if (part.text && !part.thought) {
               fullText += part.text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: part.text })}\n\n`));
             }
