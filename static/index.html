@@ -308,20 +308,32 @@
 
     const TOTAL_STAGES = STAGES.length;
 
-    /* ── Token pricing (Haiku 4.5) ────────────────────── */
-    const HAIKU_PRICING = { inputPerMTok: 0.80, outputPerMTok: 4.00 };
-    function calcCost(inputTokens, outputTokens) {
-      return (inputTokens / 1_000_000) * HAIKU_PRICING.inputPerMTok
-           + (outputTokens / 1_000_000) * HAIKU_PRICING.outputPerMTok;
+    /* ── LLM Providers ─────────────────────────────────── */
+    const LLM_PROVIDERS = {
+      gemini: { label: "Gemini 2.5 Flash", short: "Gemini", inputPerMTok: 0.15, outputPerMTok: 0.60 },
+      anthropic: { label: "Claude Haiku 4.5", short: "Claude", inputPerMTok: 0.80, outputPerMTok: 4.00 },
+    };
+    const DEFAULT_PROVIDER = "gemini";
+
+    /* ── Token pricing ─────────────────────────────────── */
+    function calcCost(inputTokens, outputTokens, provider) {
+      const p = LLM_PROVIDERS[provider] || LLM_PROVIDERS[DEFAULT_PROVIDER];
+      return (inputTokens / 1_000_000) * p.inputPerMTok
+           + (outputTokens / 1_000_000) * p.outputPerMTok;
     }
 
     const DB_KEY_MAP = { intake: "intake", refine: "refined", prd: "prd", techspec: "tech_spec", estimate: "estimate", proto_prompt: "proto_prompt", build: "build_status" };
 
     /* ── Token Cost Display (header) ─────────────────── */
-    function TokenCostDisplay({ tokenUsage }) {
+    function TokenCostDisplay({ tokenUsage, stageProviders }) {
       const [expanded, setExpanded] = React.useState(false);
       const dropdownRef = React.useRef(null);
-      const totalCost = calcCost(tokenUsage.totalInputTokens, tokenUsage.totalOutputTokens);
+      // Calculate total cost across stages with per-stage provider pricing
+      const totalCost = Object.keys(tokenUsage.stages).reduce((sum, key) => {
+        const d = tokenUsage.stages[key];
+        const prov = stageProviders?.[key] || DEFAULT_PROVIDER;
+        return sum + calcCost(d.inputTokens, d.outputTokens, prov);
+      }, 0);
 
       // Close dropdown on outside click
       React.useEffect(() => {
@@ -366,21 +378,45 @@
                 </div>
                 {STAGES.filter(s => tokenUsage.stages[s.key]).map(s => {
                   const d = tokenUsage.stages[s.key];
-                  const cost = calcCost(d.inputTokens, d.outputTokens);
+                  const prov = stageProviders?.[s.key] || DEFAULT_PROVIDER;
+                  const cost = calcCost(d.inputTokens, d.outputTokens, prov);
+                  const provLabel = LLM_PROVIDERS[prov]?.short || prov;
                   return (
                     <div key={s.key} className="flex justify-between text-anvil-400">
                       <span>{s.label}{d.calls > 1 ? ` (\u00D7${d.calls})` : ""}</span>
+                      <span className="text-anvil-500 text-[9px]">{provLabel}</span>
                       <span>{d.inputTokens.toLocaleString()} / {d.outputTokens.toLocaleString()}</span>
                       <span>{"$" + cost.toFixed(4)}</span>
                     </div>
                   );
                 })}
               </div>
-              <div className="mt-2 pt-1.5 border-t border-anvil-800 text-[10px] text-anvil-500">
-                Haiku 4.5: $0.80/MTok input, $4.00/MTok output
+              <div className="mt-2 pt-1.5 border-t border-anvil-800 text-[10px] text-anvil-500 space-y-0.5">
+                {Object.entries(LLM_PROVIDERS).map(([k, v]) => (
+                  <div key={k}>{v.short}: ${v.inputPerMTok}/MTok in, ${v.outputPerMTok}/MTok out</div>
+                ))}
               </div>
             </div>
           )}
+        </div>
+      );
+    }
+
+    /* ── LLM Provider Selector ─────────────────────────── */
+    function LLMSelector({ stageKey, provider, onChange, compact }) {
+      return (
+        <div className={`flex items-center gap-1.5 ${compact ? '' : 'mr-2'}`}>
+          <select
+            value={provider}
+            onChange={(e) => onChange(stageKey, e.target.value)}
+            className="appearance-none bg-anvil-800/80 border border-anvil-700 text-anvil-300 text-[11px] font-display font-medium rounded-lg px-2.5 py-1.5 pr-6 cursor-pointer hover:border-anvil-500 hover:text-anvil-100 transition-all focus:outline-none focus:border-forge-500/50"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+            title="Select LLM provider for this stage"
+          >
+            {Object.entries(LLM_PROVIDERS).map(([k, v]) => (
+              <option key={k} value={k}>{v.short}</option>
+            ))}
+          </select>
         </div>
       );
     }
@@ -894,6 +930,8 @@
       const [autoPilot, setAutoPilot] = useState(false);
       const autoPilotRef = useRef(false);
       const [tokenUsage, setTokenUsage] = useState({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
+      const [globalProvider, setGlobalProvider] = useState(DEFAULT_PROVIDER);
+      const [stageProviders, setStageProviders] = useState({});
 
       function addTokenUsage(stageKey, usage) {
         if (!usage || (!usage.input_tokens && !usage.output_tokens)) return;
@@ -913,6 +951,15 @@
 
       const currentStage = STAGES[viewStep - 1];
 
+      function getProviderForStage(stageKey) {
+        return stageProviders[stageKey] || globalProvider;
+      }
+
+      function setProviderForStage(stageKey, provider) {
+        setStageProviders(prev => ({ ...prev, [stageKey]: provider }));
+        setGlobalProvider(provider);
+      }
+
       function detectClarifyingQuestions(text) {
         if (!text) return null;
         const qSection = text.match(/##\s*Clarifying Questions[\s\S]*?(?=\n##\s|$)/i);
@@ -923,11 +970,11 @@
         return null;
       }
 
-      async function callAPI(stage, inputText) {
+      async function callAPI(stage, inputText, provider) {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage, input_text: inputText }),
+          body: JSON.stringify({ stage, input_text: inputText, provider: provider || getProviderForStage(stage) }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -1298,6 +1345,7 @@
         setOutputs({ intake: "", refine: "", prd: "", techspec: "", estimate: "", proto_prompt: "", build: "" });
         setStaleStages(new Set()); setEditMode(null); setManualEdit(null); setJellyfishContext(null);
         setTokenUsage({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
+        setStageProviders({});
       }
 
       const canGenerate = viewStep === activeStep && activeStep < TOTAL_STAGES && outputs[currentStage.key].trim().length > 0;
@@ -1322,7 +1370,7 @@
               </div>
               {/* Desktop actions */}
               <div className="hidden sm:flex items-center gap-2">
-                <TokenCostDisplay tokenUsage={tokenUsage} />
+                <TokenCostDisplay tokenUsage={tokenUsage} stageProviders={stageProviders} />
                 <PrintMenu outputs={outputs} />
                 <button onClick={() => setShowRuns(true)}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg hover:border-anvil-600 hover:text-anvil-200 transition-all">
@@ -1341,7 +1389,7 @@
             {/* Mobile dropdown */}
             {mobileMenu && (
               <div className="sm:hidden border-t border-anvil-800/50 px-4 py-3 flex flex-wrap gap-2 fade-up">
-                <TokenCostDisplay tokenUsage={tokenUsage} />
+                <TokenCostDisplay tokenUsage={tokenUsage} stageProviders={stageProviders} />
                 <PrintMenu outputs={outputs} />
                 <button onClick={() => { setShowRuns(true); setMobileMenu(false); }}
                   className="flex items-center gap-2 px-3 py-2 text-xs font-display font-medium text-anvil-400 border border-anvil-800 rounded-lg">
@@ -1635,6 +1683,14 @@
                         className="flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300 border border-forge-500/30 text-forge-400 hover:bg-forge-500/10 hover:border-forge-500/50">
                         <Zap size={16} /> Auto-Pilot
                       </button>
+                    )}
+                    {/* LLM Provider selector — shown next to generate button */}
+                    {!autoPilot && viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && !isProcessing && (
+                      <LLMSelector
+                        stageKey={STAGES[activeStep]?.key}
+                        provider={getProviderForStage(STAGES[activeStep]?.key)}
+                        onChange={setProviderForStage}
+                      />
                     )}
                     {/* Standard generate button */}
                     {!autoPilot && viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && (
