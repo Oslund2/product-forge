@@ -168,6 +168,7 @@
     const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
     const ArrowRight = (p) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></Icon>;
     const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>;
+    const AlertTriangle = (p) => <Icon {...p}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></Icon>;
     const RotateCcw = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></Icon>;
     const Save = (p) => <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
     const FolderOpen = (p) => <Icon {...p}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></Icon>;
@@ -185,6 +186,7 @@
     const Clipboard = (p) => <Icon {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></Icon>;
     const ArchiveIcon = (p) => <Icon {...p}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></Icon>;
     const Undo = (p) => <Icon {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></Icon>;
+    const Eye = (p) => <Icon {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></Icon>;
 
     /* ── Forge Logo ──────────────────────────────────── */
     function ForgeLogo() {
@@ -310,10 +312,23 @@
 
     /* ── LLM Providers ─────────────────────────────────── */
     const LLM_PROVIDERS = {
-      gemini: { label: "Gemini 2.5 Flash", short: "Gemini", inputPerMTok: 0.15, outputPerMTok: 0.60 },
-      anthropic: { label: "Claude Haiku 4.5", short: "Claude", inputPerMTok: 0.80, outputPerMTok: 4.00 },
+      gemini_lite:  { family: "gemini", label: "Gemini 2.5 Flash-Lite", short: "Lite",   inputPerMTok: 0.075, outputPerMTok: 0.30 },
+      gemini_flash: { family: "gemini", label: "Gemini 2.5 Flash",      short: "Flash",  inputPerMTok: 0.15,  outputPerMTok: 0.60 },
+      gemini_pro:   { family: "gemini", label: "Gemini 2.5 Pro",        short: "Pro",    inputPerMTok: 1.25,  outputPerMTok: 10.00 },
+      anthropic:    { family: "anthropic", label: "Claude Haiku 4.5",   short: "Claude", inputPerMTok: 0.80,  outputPerMTok: 4.00 },
     };
-    const DEFAULT_PROVIDER = "gemini";
+    const DEFAULT_PROVIDER = "gemini_flash";
+
+    /* ── AutoPilot Tier Strategies ─────────────────────── */
+    const TIER_STRATEGIES = {
+      economy:  { label: "Economy",  desc: "All Flash — fastest & cheapest",               icon: "$",   refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_flash", estimate: "gemini_flash", proto_prompt: "gemini_flash" },
+      balanced: { label: "Balanced", desc: "Flash early, Pro for complex stages",           icon: "$$",  refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_pro",   estimate: "gemini_pro",   proto_prompt: "gemini_pro"   },
+      quality:  { label: "Quality",  desc: "Pro for all stages — highest output quality",   icon: "$$$", refine: "gemini_pro",   prd: "gemini_pro",   techspec: "gemini_pro",   estimate: "gemini_pro",   proto_prompt: "gemini_pro"   },
+    };
+
+    const RECOMMENDED_PROVIDERS = {
+      refine: "gemini_flash", prd: "gemini_flash", techspec: "gemini_pro", estimate: "gemini_pro", proto_prompt: "gemini_pro",
+    };
 
     /* ── Token pricing ─────────────────────────────────── */
     function calcCost(inputTokens, outputTokens, provider) {
@@ -391,7 +406,24 @@
                   );
                 })}
               </div>
-              <div className="mt-2 pt-1.5 border-t border-anvil-800 text-[10px] text-anvil-500 space-y-0.5">
+              {/* Cost comparison vs all-Flash baseline */}
+              {(() => {
+                const flashCost = Object.keys(tokenUsage.stages).reduce((sum, key) => {
+                  const d = tokenUsage.stages[key];
+                  return sum + calcCost(d.inputTokens, d.outputTokens, "gemini_flash");
+                }, 0);
+                const delta = totalCost - flashCost;
+                if (Math.abs(delta) > 0.0001) return (
+                  <div className="mt-1.5 pt-1.5 border-t border-anvil-800 text-[10px] flex justify-between">
+                    <span className="text-anvil-500">vs. all-Flash baseline</span>
+                    <span className={delta > 0 ? "text-amber-400" : "text-emerald-400"}>
+                      {delta > 0 ? "+" : ""}${delta.toFixed(4)} ({delta > 0 ? "+" : ""}{((delta / flashCost) * 100).toFixed(0)}%)
+                    </span>
+                  </div>
+                );
+                return null;
+              })()}
+              <div className="mt-1.5 pt-1.5 border-t border-anvil-800 text-[10px] text-anvil-500 space-y-0.5">
                 {Object.entries(LLM_PROVIDERS).map(([k, v]) => (
                   <div key={k}>{v.short}: ${v.inputPerMTok}/MTok in, ${v.outputPerMTok}/MTok out</div>
                 ))}
@@ -404,18 +436,28 @@
 
     /* ── LLM Provider Selector ─────────────────────────── */
     function LLMSelector({ stageKey, provider, onChange, compact }) {
+      const rec = RECOMMENDED_PROVIDERS[stageKey];
+      const geminiProviders = Object.entries(LLM_PROVIDERS).filter(([, v]) => v.family === "gemini");
+      const anthropicProviders = Object.entries(LLM_PROVIDERS).filter(([, v]) => v.family === "anthropic");
       return (
         <div className={`flex items-center gap-1.5 ${compact ? '' : 'mr-2'}`}>
           <select
             value={provider}
             onChange={(e) => onChange(stageKey, e.target.value)}
-            className="appearance-none bg-anvil-800/80 border border-anvil-700 text-anvil-300 text-[11px] font-display font-medium rounded-lg px-2.5 py-1.5 pr-6 cursor-pointer hover:border-anvil-500 hover:text-anvil-100 transition-all focus:outline-none focus:border-forge-500/50"
+            className="appearance-none bg-anvil-800/80 border border-anvil-700 text-anvil-300 text-[11px] font-display font-medium rounded-lg px-2.5 py-1.5 pr-7 cursor-pointer hover:border-anvil-500 hover:text-anvil-100 transition-all focus:outline-none focus:border-forge-500/50"
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
             title="Select LLM provider for this stage"
           >
-            {Object.entries(LLM_PROVIDERS).map(([k, v]) => (
-              <option key={k} value={k}>{v.short}</option>
-            ))}
+            <optgroup label="Google Gemini">
+              {geminiProviders.map(([k, v]) => (
+                <option key={k} value={k}>{v.short}{rec === k ? ' \u2605' : ''}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Anthropic Claude">
+              {anthropicProviders.map(([k, v]) => (
+                <option key={k} value={k}>{v.short}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       );
@@ -931,7 +973,15 @@
       const autoPilotRef = useRef(false);
       const [tokenUsage, setTokenUsage] = useState({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
       const [globalProvider, setGlobalProvider] = useState(DEFAULT_PROVIDER);
-      const [stageProviders, setStageProviders] = useState({});
+      const [stageProviders, setStageProviders] = useState(() => {
+        try { const saved = localStorage.getItem("pf_stageProviders"); return saved ? JSON.parse(saved) : {}; } catch { return {}; }
+      });
+      const [preflight, setPreflight] = useState(null); // { score, specificity, completeness, clarity, suggestions }
+      const [validationIssues, setValidationIssues] = useState({}); // { [stageKey]: { consistent, issues } }
+      const preflightTimer = useRef(null);
+      const [deepReview, setDeepReview] = useState({}); // { [stageKey]: "markdown review text" }
+      const [reviewProcessing, setReviewProcessing] = useState(false);
+      const [showReview, setShowReview] = useState(null); // stageKey or null
 
       function addTokenUsage(stageKey, usage) {
         if (!usage || (!usage.input_tokens && !usage.output_tokens)) return;
@@ -949,15 +999,105 @@
         });
       }
 
+      // Persist tier strategy to localStorage
+      React.useEffect(() => {
+        try { localStorage.setItem("pf_stageProviders", JSON.stringify(stageProviders)); } catch {}
+      }, [stageProviders]);
+
       const currentStage = STAGES[viewStep - 1];
 
+      // Nano-powered input quality check (debounced)
+      function runPreflight(text) {
+        if (preflightTimer.current) clearTimeout(preflightTimer.current);
+        if (!text || text.trim().length < 20) { setPreflight(null); return; }
+        preflightTimer.current = setTimeout(async () => {
+          try {
+            const res = await fetch("/api/preflight", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.score) setPreflight(data);
+            }
+          } catch {}
+        }, 1500);
+      }
+
+      // Nano-powered inter-stage consistency check
+      async function runValidation(stageKey, stageOutput) {
+        if (!stageOutput?.trim()) return;
+        try {
+          const res = await fetch("/api/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              current_stage: stageKey,
+              current_output: stageOutput,
+              previous_outputs: outputs,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.issues?.length > 0) {
+              setValidationIssues(prev => ({ ...prev, [stageKey]: data }));
+            } else {
+              setValidationIssues(prev => { const next = { ...prev }; delete next[stageKey]; return next; });
+            }
+          }
+        } catch {}
+      }
+
+      // Pro-powered deep review
+      const REVIEW_STAGES = new Set(["techspec", "estimate", "proto_prompt"]);
+      async function runDeepReview(stageKey) {
+        if (!outputs[stageKey]?.trim() || reviewProcessing) return;
+        setReviewProcessing(true);
+        setShowReview(stageKey);
+        setDeepReview(prev => ({ ...prev, [stageKey]: "" }));
+        try {
+          const res = await fetch("/api/review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage: stageKey, output: outputs[stageKey], all_outputs: outputs }),
+          });
+          if (!res.ok) throw new Error("Review request failed");
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "", full = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const parsed = JSON.parse(line.slice(6).trim());
+                if (parsed.delta) { full += parsed.delta; setDeepReview(prev => ({ ...prev, [stageKey]: full })); }
+              } catch {}
+            }
+          }
+        } catch (e) { setDeepReview(prev => ({ ...prev, [stageKey]: `Error: ${e.message}` })); }
+        finally { setReviewProcessing(false); }
+      }
+
       function getProviderForStage(stageKey) {
-        return stageProviders[stageKey] || globalProvider;
+        return stageProviders[stageKey] || RECOMMENDED_PROVIDERS[stageKey] || globalProvider;
       }
 
       function setProviderForStage(stageKey, provider) {
         setStageProviders(prev => ({ ...prev, [stageKey]: provider }));
-        setGlobalProvider(provider);
+      }
+
+      function applyTierStrategy(strategyKey) {
+        const strategy = TIER_STRATEGIES[strategyKey];
+        if (!strategy) return;
+        const newProviders = {};
+        STAGES.forEach(s => { if (strategy[s.key]) newProviders[s.key] = strategy[s.key]; });
+        setStageProviders(newProviders);
       }
 
       function detectClarifyingQuestions(text) {
@@ -1082,6 +1222,9 @@
           const nextKey = STAGES[activeStep].key;
           addTokenUsage(nextKey, usage);
           setOutputs(prev => ({ ...prev, [nextKey]: result }));
+
+          // Nano-powered consistency check (fire-and-forget, non-blocking)
+          runValidation(nextKey, result);
 
           // Check for clarifying questions
           const questions = detectClarifyingQuestions(result);
@@ -1496,12 +1639,39 @@
                 {/* Content */}
                 <div className="p-4 sm:p-6">
                   {viewStep === 1 && activeStep === 1 ? (
-                    <textarea
-                      className="w-full h-56 sm:h-80 p-4 sm:p-5 bg-anvil-900/50 border border-anvil-800/50 rounded-xl text-sm text-anvil-200 resize-none focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all placeholder:text-anvil-400 font-body"
-                      placeholder={"Describe your product idea...\n\nInclude details like:\n\u2022 What problem does it solve?\n\u2022 Who is it for?\n\u2022 Key features and constraints\n\u2022 Business context and goals"}
-                      value={outputs.intake}
-                      onChange={e => setOutputs(prev => ({ ...prev, intake: e.target.value }))}
-                    />
+                    <div>
+                      <textarea
+                        className="w-full h-56 sm:h-80 p-4 sm:p-5 bg-anvil-900/50 border border-anvil-800/50 rounded-xl text-sm text-anvil-200 resize-none focus:outline-none focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20 transition-all placeholder:text-anvil-400 font-body"
+                        placeholder={"Describe your product idea...\n\nInclude details like:\n\u2022 What problem does it solve?\n\u2022 Who is it for?\n\u2022 Key features and constraints\n\u2022 Business context and goals"}
+                        value={outputs.intake}
+                        onChange={e => { setOutputs(prev => ({ ...prev, intake: e.target.value })); runPreflight(e.target.value); }}
+                      />
+                      {/* Nano-powered input quality indicator */}
+                      {preflight && preflight.score > 0 && (
+                        <div className="mt-3 p-3 rounded-lg bg-anvil-900/60 border border-anvil-800/40">
+                          <div className="flex items-center gap-3 mb-1.5">
+                            <span className="font-display text-[11px] font-semibold text-anvil-400 uppercase tracking-wider">Input Quality</span>
+                            <div className="flex gap-1">
+                              {[1,2,3,4,5].map(i => (
+                                <div key={i} className={`w-5 h-1.5 rounded-full ${i <= Math.round(preflight.score) ? (preflight.score >= 4 ? 'bg-emerald-500' : preflight.score >= 2.5 ? 'bg-forge-500' : 'bg-red-400') : 'bg-anvil-700'}`} />
+                              ))}
+                            </div>
+                            <span className={`text-[11px] font-display font-medium ${preflight.score >= 4 ? 'text-emerald-400' : preflight.score >= 2.5 ? 'text-forge-400' : 'text-red-400'}`}>
+                              {preflight.score >= 4 ? 'Ready to forge' : preflight.score >= 2.5 ? 'Good start' : 'Needs more detail'}
+                            </span>
+                          </div>
+                          {preflight.suggestions?.length > 0 && (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {preflight.suggestions.map((s, i) => (
+                                <li key={i} className="text-[11px] text-anvil-400 flex items-start gap-1.5">
+                                  <span className="text-forge-500 mt-0.5 shrink-0">*</span> {s}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : currentStage.key === "build" && outputs.proto_prompt ? (
                     <BuildStagePanel
                       protoPrompt={outputs.proto_prompt}
@@ -1573,6 +1743,24 @@
                               </div>
                             </div>
                           ) : (
+                            <div>
+                            {/* Nano-powered consistency warnings */}
+                            {validationIssues[currentStage.key] && validationIssues[currentStage.key].issues?.length > 0 && (
+                              <div className="mt-3 p-3 rounded-lg bg-amber-950/30 border border-amber-500/20">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <AlertTriangle size={13} className="text-amber-400" />
+                                  <span className="font-display text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Consistency Check</span>
+                                  <span className="text-[10px] text-anvil-500 font-display">powered by Gemini Lite</span>
+                                </div>
+                                <ul className="space-y-1">
+                                  {validationIssues[currentStage.key].issues.map((issue, i) => (
+                                    <li key={i} className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
+                                      <span className="text-amber-500 mt-0.5 shrink-0">*</span> {issue}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                             <div className={`flex items-center gap-3 py-2 px-1 border-t border-anvil-800/20 mt-4 flex-wrap ${autoPilot ? 'opacity-40 pointer-events-none' : ''}`}>
                               <button onClick={() => setManualEdit({ stageKey: currentStage.key, text: outputs[currentStage.key] })} disabled={autoPilot}
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
@@ -1586,6 +1774,28 @@
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-anvil-300 border border-anvil-800/40 hover:border-forge-500/30 hover:text-forge-400 transition-all disabled:opacity-50">
                                 <RotateCcw size={13} /> {editProcessing ? "Regenerating..." : "Regenerate"}
                               </button>
+                              {/* Deep Review button — Pro-powered, for complex stages */}
+                              {REVIEW_STAGES.has(currentStage.key) && (
+                                <button onClick={() => deepReview[currentStage.key] ? setShowReview(showReview === currentStage.key ? null : currentStage.key) : runDeepReview(currentStage.key)} disabled={reviewProcessing || autoPilot}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-display font-medium text-purple-300 border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all disabled:opacity-50 ml-auto">
+                                  <Eye size={13} /> {reviewProcessing && showReview === currentStage.key ? "Reviewing..." : deepReview[currentStage.key] ? (showReview === currentStage.key ? "Hide Review" : "Show Review") : "Deep Review"}
+                                  <span className="text-[9px] text-purple-400/60 font-normal">Pro</span>
+                                </button>
+                              )}
+                            </div>
+                            {/* Deep Review panel */}
+                            {showReview === currentStage.key && deepReview[currentStage.key] && (
+                              <div className="mt-3 p-4 rounded-lg bg-purple-950/20 border border-purple-500/20 fade-up">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <Eye size={14} className="text-purple-400" />
+                                  <span className="font-display text-xs font-semibold text-purple-400 uppercase tracking-wider">Deep Review</span>
+                                  <span className="text-[10px] text-anvil-500 font-display">powered by Gemini Pro</span>
+                                </div>
+                                <div className="prose-custom text-sm">
+                                  <MarkdownView content={deepReview[currentStage.key]} />
+                                </div>
+                              </div>
+                            )}
                             </div>
                           )}
                         </div>
@@ -1677,12 +1887,28 @@
                         <X size={14} /> Cancel Auto-Pilot
                       </button>
                     )}
-                    {/* Auto-Pilot start button — only at intake stage */}
+                    {/* Auto-Pilot start button + strategy picker — only at intake stage */}
                     {!autoPilot && viewStep === activeStep && activeStep === 1 && outputs.intake.trim().length > 0 && !isProcessing && (
-                      <button onClick={runAutoPilot}
-                        className="flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300 border border-forge-500/30 text-forge-400 hover:bg-forge-500/10 hover:border-forge-500/50">
-                        <Zap size={16} /> Auto-Pilot
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={Object.keys(TIER_STRATEGIES).find(k => {
+                            const s = TIER_STRATEGIES[k];
+                            return Object.keys(RECOMMENDED_PROVIDERS).every(sk => (stageProviders[sk] || RECOMMENDED_PROVIDERS[sk]) === s[sk]);
+                          }) || "balanced"}
+                          onChange={(e) => applyTierStrategy(e.target.value)}
+                          className="appearance-none bg-anvil-800/80 border border-forge-500/30 text-forge-400 text-[11px] font-display font-medium rounded-lg px-2.5 py-3 pr-6 cursor-pointer hover:border-forge-500/50 transition-all focus:outline-none"
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+                          title="Select AI tier strategy for Auto-Pilot"
+                        >
+                          {Object.entries(TIER_STRATEGIES).map(([k, v]) => (
+                            <option key={k} value={k}>{v.icon} {v.label}</option>
+                          ))}
+                        </select>
+                        <button onClick={runAutoPilot}
+                          className="flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3 rounded-xl font-display text-sm font-semibold tracking-tight transition-all duration-300 border border-forge-500/30 text-forge-400 hover:bg-forge-500/10 hover:border-forge-500/50">
+                          <Zap size={16} /> Auto-Pilot
+                        </button>
+                      </div>
                     )}
                     {/* LLM Provider selector — shown next to generate button */}
                     {!autoPilot && viewStep === activeStep && activeStep < TOTAL_STAGES && currentStage.key !== "build" && !isProcessing && (

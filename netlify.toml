@@ -8,3 +8,8 @@
   for = "/api/generate"
   [headers.values]
     Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/api/review"
+  [headers.values]
+    Cache-Control = "no-cache"

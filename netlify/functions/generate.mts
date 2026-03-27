@@ -371,31 +371,36 @@ IMPORTANT GUIDELINES FOR THE PROMPT YOU GENERATE:
 - Keep scope tight — prototype the core 2-3 user flows, not the entire product`,
 };
 
-const ANTHROPIC_MODEL_MAP: Record<string, string> = {
-  refine: "claude-haiku-4-5-20251001",
-  prd: "claude-haiku-4-5-20251001",
-  techspec: "claude-haiku-4-5-20251001",
-  estimate: "claude-haiku-4-5-20251001",
-  proto_prompt: "claude-haiku-4-5-20251001",
+/* ── Model ID map keyed by provider ─────────────────── */
+const MODEL_MAP: Record<string, string> = {
+  gemini_lite:  "gemini-2.5-flash-lite",
+  gemini_flash: "gemini-2.5-flash",
+  gemini_pro:   "gemini-2.5-pro",
+  anthropic:    "claude-haiku-4-5-20251001",
 };
 
-const GEMINI_MODEL_MAP: Record<string, string> = {
-  refine: "gemini-2.5-flash",
-  prd: "gemini-2.5-flash",
-  techspec: "gemini-2.5-flash",
-  estimate: "gemini-2.5-flash",
-  proto_prompt: "gemini-2.5-flash",
+/* ── Default provider per stage (Balanced strategy) ── */
+const DEFAULT_STAGE_PROVIDERS: Record<string, string> = {
+  refine:       "gemini_flash",
+  prd:          "gemini_flash",
+  techspec:     "gemini_pro",
+  estimate:     "gemini_pro",
+  proto_prompt: "gemini_pro",
 };
 
-const TOKEN_MAP: Record<string, number> = {
-  refine: 4096,
-  prd: 4096,
-  techspec: 4096,
-  estimate: 4096,
-  proto_prompt: 4096,
+/* ── Max output tokens — tier-aware ─────────────────── */
+const TOKEN_MAP: Record<string, Record<string, number>> = {
+  gemini_lite:  { refine: 2048, prd: 2048,  techspec: 2048,  estimate: 2048,  proto_prompt: 2048  },
+  gemini_flash: { refine: 4096, prd: 4096,  techspec: 4096,  estimate: 4096,  proto_prompt: 4096  },
+  gemini_pro:   { refine: 8192, prd: 8192,  techspec: 16384, estimate: 16384, proto_prompt: 16384 },
+  anthropic:    { refine: 4096, prd: 4096,  techspec: 4096,  estimate: 4096,  proto_prompt: 4096  },
 };
 
-type Provider = "gemini" | "anthropic";
+function getMaxTokens(provider: string, stage: string): number {
+  return TOKEN_MAP[provider]?.[stage] || TOKEN_MAP.gemini_flash?.[stage] || 4096;
+}
+
+type Provider = "gemini_lite" | "gemini_flash" | "gemini_pro" | "anthropic";
 
 async function streamAnthropic(
   apiKey: string,
@@ -404,8 +409,8 @@ async function streamAnthropic(
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder,
 ) {
-  const model = ANTHROPIC_MODEL_MAP[stage] || "claude-haiku-4-5-20251001";
-  const maxTokens = TOKEN_MAP[stage] || 8192;
+  const model = MODEL_MAP.anthropic;
+  const maxTokens = getMaxTokens("anthropic", stage);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -470,13 +475,14 @@ async function streamAnthropic(
 
 async function streamGemini(
   apiKey: string,
+  provider: string,
   stage: string,
   input_text: string,
   controller: ReadableStreamDefaultController,
   encoder: TextEncoder,
 ) {
-  const model = GEMINI_MODEL_MAP[stage] || "gemini-2.5-flash";
-  const maxTokens = TOKEN_MAP[stage] || 8192;
+  const model = MODEL_MAP[provider] || "gemini-2.5-flash";
+  const maxTokens = getMaxTokens(provider, stage);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const response = await fetch(url, {
@@ -555,7 +561,7 @@ export default async (req: Request, _context: Context) => {
     });
   }
 
-  let body: { stage: string; input_text: string; provider?: Provider };
+  let body: { stage: string; input_text: string; provider?: string };
   try {
     body = await req.json();
   } catch {
@@ -565,7 +571,11 @@ export default async (req: Request, _context: Context) => {
     });
   }
 
-  const { stage, input_text, provider = "gemini" } = body;
+  // Support legacy "gemini" provider value by mapping to "gemini_flash"
+  let { stage, input_text, provider } = body;
+  if (!provider || provider === "gemini") {
+    provider = DEFAULT_STAGE_PROVIDERS[stage] || "gemini_flash";
+  }
 
   if (!stage || !SYSTEM_PROMPTS[stage]) {
     return new Response(
@@ -580,13 +590,14 @@ export default async (req: Request, _context: Context) => {
     );
   }
 
-  const apiKey = provider === "gemini"
+  const isGemini = provider.startsWith("gemini");
+  const apiKey = isGemini
     ? process.env.GEMINI_API_KEY
     : process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: `${provider === "gemini" ? "GEMINI" : "ANTHROPIC"}_API_KEY not configured` }),
+      JSON.stringify({ error: `${isGemini ? "GEMINI" : "ANTHROPIC"}_API_KEY not configured` }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -597,8 +608,8 @@ export default async (req: Request, _context: Context) => {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          if (provider === "gemini") {
-            await streamGemini(apiKey, stage, input_text, controller, encoder);
+          if (isGemini) {
+            await streamGemini(apiKey, provider, stage, input_text, controller, encoder);
           } else {
             await streamAnthropic(apiKey, stage, input_text, controller, encoder);
           }
