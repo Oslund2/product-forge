@@ -973,7 +973,13 @@
       const [tokenUsage, setTokenUsage] = useState({ totalInputTokens: 0, totalOutputTokens: 0, stages: {} });
       const [globalProvider, setGlobalProvider] = useState(DEFAULT_PROVIDER);
       const [stageProviders, setStageProviders] = useState(() => {
-        try { const saved = localStorage.getItem("pf_stageProviders"); return saved ? JSON.parse(saved) : {}; } catch { return {}; }
+        try {
+          // v2: reset stale Pro defaults that cause timeouts on Netlify
+          const ver = localStorage.getItem("pf_providers_v");
+          if (ver !== "2") { localStorage.removeItem("pf_stageProviders"); localStorage.setItem("pf_providers_v", "2"); return {}; }
+          const saved = localStorage.getItem("pf_stageProviders");
+          return saved ? JSON.parse(saved) : {};
+        } catch { return {}; }
       });
       const [preflight, setPreflight] = useState(null); // { score, specificity, completeness, clarity, suggestions }
       const [validationIssues, setValidationIssues] = useState({}); // { [stageKey]: { consistent, issues } }
