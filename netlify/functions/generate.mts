@@ -515,6 +515,12 @@ async function streamGemini(
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
 
+  // Periodic keepalive to prevent Netlify timeout during Gemini thinking phase
+  const keepalive = setInterval(() => {
+    controller.enqueue(encoder.encode(`: keepalive\n\n`));
+  }, 5000);
+
+  try {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -571,6 +577,9 @@ async function streamGemini(
   }
 
   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ output: fullText, done: true })}\n\n`));
+  } finally {
+    clearInterval(keepalive);
+  }
   controller.close();
 }
 
@@ -628,6 +637,9 @@ export default async (req: Request, _context: Context) => {
 
     const stream = new ReadableStream({
       async start(controller) {
+        // Send keepalive immediately so Netlify doesn't kill the function
+        // before the LLM starts generating tokens
+        controller.enqueue(encoder.encode(`: keepalive\n\n`));
         try {
           if (isGemini) {
             await streamGemini(apiKey, provider, stage, input_text, controller, encoder);
